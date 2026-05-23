@@ -47,6 +47,7 @@ def format_dt(value: datetime | None) -> str:
 
 
 def parse_dt(value: str) -> datetime | None:
+    value = value.strip()
     if value == "":
         return None
 
@@ -101,8 +102,6 @@ class Word:
     @classmethod
     def from_row(cls, row: Mapping[str, str]) -> Word:
         last_reviewed_at = parse_dt(row["last_reviewed_at"])
-        if last_reviewed_at is not None and not isinstance(last_reviewed_at, datetime):
-            raise ValueError("last_reviewed_at must be a datetime or blank")
 
         return cls(
             id=row["id"],

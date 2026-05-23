@@ -1,15 +1,19 @@
 import unittest
 from dataclasses import fields
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from stickwords.models import (
     RATING_FORGOT,
     RATING_GOOD,
     RATING_HARD,
+    STATUS_LEARNING,
     STATUS_NEW,
+    STATUS_REVIEW,
+    STATUS_SUSPENDED,
     VOCAB_FIELDS,
     Word,
     format_dt,
+    normalize_dt,
     parse_dt,
 )
 
@@ -58,6 +62,7 @@ class ModelTests(unittest.TestCase):
 
     def test_word_round_trip_csv_row(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        reviewed_at = datetime(2026, 5, 24, 8, 30, tzinfo=timezone.utc)
         word = Word.new_word(
             word_id="w-1",
             word="abandon",
@@ -65,6 +70,7 @@ class ModelTests(unittest.TestCase):
             example="Do not abandon your plan.",
             now=now,
         )
+        word.last_reviewed_at = reviewed_at
 
         row = word.to_row()
         restored = Word.from_row(row)
@@ -72,6 +78,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(VOCAB_FIELDS, REQUIRED_VOCAB_FIELDS)
         self.assertEqual([field.name for field in fields(Word)], REQUIRED_VOCAB_FIELDS)
         self.assertEqual(list(row.keys()), VOCAB_FIELDS)
+        self.assertEqual(row["last_reviewed_at"], "2026-05-24T08:30:00Z")
         self.assertEqual(row["ease"], "2.50")
         self.assertEqual(restored, word)
 
@@ -82,6 +89,35 @@ class ModelTests(unittest.TestCase):
 
         self.assertEqual(value, "2026-05-23T10:00:00Z")
         self.assertEqual(parse_dt(value), now)
+        self.assertEqual(format_dt(None), "")
+        self.assertIsNone(parse_dt(""))
+        self.assertIsNone(parse_dt("   "))
+
+    def test_normalize_dt_handles_naive_and_non_utc_values(self):
+        naive = datetime(2026, 5, 23, 10, 0)
+        non_utc = datetime(
+            2026,
+            5,
+            23,
+            18,
+            0,
+            tzinfo=timezone(timedelta(hours=8)),
+        )
+
+        self.assertEqual(
+            normalize_dt(naive),
+            datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            normalize_dt(non_utc),
+            datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc),
+        )
+
+    def test_supported_statuses_are_explicit(self):
+        self.assertEqual(STATUS_NEW, "new")
+        self.assertEqual(STATUS_LEARNING, "learning")
+        self.assertEqual(STATUS_REVIEW, "review")
+        self.assertEqual(STATUS_SUSPENDED, "suspended")
 
     def test_supported_ratings_are_explicit(self):
         self.assertEqual(RATING_FORGOT, "forgot")
