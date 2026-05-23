@@ -102,11 +102,9 @@ def create_app(service: StickWordsService):
                 service.suspend_word(_word_id(form))
                 return _redirect(start_response, "/admin?message=Suspended")
 
-            if method == "POST" and path in ("/admin/import", "/admin/import-csv"):
+            if method == "POST" and path == "/admin/import":
                 form = _read_form(environ)
-                result = service.import_csv_text(
-                    form.get("csv_text", form.get("csv_file", ""))
-                )
+                result = service.import_csv_text(form.get("csv_text", ""))
                 message = (
                     f"Imported created={result.created} "
                     f"updated={result.updated} failed={result.failed}"

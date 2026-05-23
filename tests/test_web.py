@@ -86,6 +86,34 @@ class WebTests(unittest.TestCase):
             self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
             self.assertEqual(json.loads(body)["total_words"], 1)
 
+    def test_post_import_csv_text_redirects_and_persists(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            app = create_app(service)
+            form = urlencode(
+                {
+                    "csv_text": (
+                        "word,meaning,example\n"
+                        "abandon,fangqi,Do not abandon your plan.\n"
+                        "benefit,haochu,A clear benefit.\n"
+                    )
+                }
+            )
+
+            status, headers, body = call_app(app, "POST", "/admin/import", form)
+
+            self.assertEqual(status, "303 See Other")
+            self.assertEqual(
+                headers["Location"],
+                "/admin?message=Imported+created%3D2+updated%3D0+failed%3D0",
+            )
+            self.assertEqual(
+                [word.word for word in service.load_words()],
+                ["abandon", "benefit"],
+            )
+            self.assertEqual(body, "")
+
     def test_unknown_route_returns_404(self):
         with workspace_temp_dir() as temp_dir:
             app = create_app(StickWordsService(temp_dir))

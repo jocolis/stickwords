@@ -66,6 +66,23 @@ class AdminViewTests(unittest.TestCase):
         self.assertIn("&lt;b&gt;bad&lt;/b&gt;", html)
         self.assertIn("&lt;ok&gt;", html)
 
+    def test_import_csv_form_posts_urlencoded_csv_text(self):
+        html = render_admin_page(
+            status={
+                "total_words": 0,
+                "new_words": 0,
+                "review_words": 0,
+                "suspended_words": 0,
+                "due_today": 0,
+            },
+            words=[],
+        )
+
+        self.assertIn('action="/admin/import"', html)
+        self.assertNotIn("multipart/form-data", html)
+        self.assertIn('name="csv_text"', html)
+        self.assertNotIn("csv_file", html)
+
 
 if __name__ == "__main__":
     unittest.main()

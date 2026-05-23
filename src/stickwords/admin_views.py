@@ -70,8 +70,9 @@ def render_admin_page(
 
   <section aria-labelledby="import-csv-heading">
     <h2 id="import-csv-heading">Import CSV</h2>
-    <form method="post" action="/admin/import-csv" enctype="multipart/form-data">
-      <label>CSV File <input type="file" name="csv_file" accept=".csv,text/csv" required></label>
+    <form method="post" action="/admin/import">
+      <label>CSV Text <textarea name="csv_text" required>word,meaning,example
+</textarea></label>
       <button type="submit">Import CSV</button>
     </form>
   </section>
