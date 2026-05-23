@@ -1,8 +1,9 @@
-# M5Stick 背单词应用设计
+# StickWords 设计
 
 ## 设计原则
 
 - 不编造硬件能力，具体按键、库函数和传感器行为要在开发时验证。
+- 公开项目名使用 StickWords，避免在仓库名和应用名中使用 `Anki`。
 - PC 是“大脑”和主数据源，M5Stick 是轻量复习终端。
 - CSV 是第一版的长期数据源。
 - 设备端交互要适合小屏幕、少按键和横握使用。
@@ -401,7 +402,7 @@ USB 配置向导。
 启动方式：
 
 ```text
-start_m5anki.bat
+start_stickwords.bat
 ```
 
 双击后：
@@ -460,7 +461,7 @@ M5Stick 返回 JSON 行：
 
 ```text
 实现 UDP 自动发现。
-M5Stick 在局域网广播寻找 M5Anki 后端。
+M5Stick 在局域网广播寻找 StickWords 后端。
 PC 后端回复自己的地址。
 ```
 
@@ -499,4 +500,3 @@ PC IP 改变后用 USB 重写 server_url。
 同一批 review_event_id 重试上传。
 CSV 导入后 M5Stick 同步今日任务。
 ```
-
