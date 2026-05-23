@@ -21,8 +21,8 @@ VOCAB_FIELDS = [
     "example",
     "status",
     "added_at",
-    "due_at",
     "last_reviewed_at",
+    "due_at",
     "review_count",
     "ease",
     "interval_days",
@@ -64,8 +64,8 @@ class Word:
     example: str
     status: str
     added_at: datetime
-    due_at: datetime
     last_reviewed_at: datetime | None
+    due_at: datetime
     review_count: int
     ease: float
     interval_days: int
@@ -84,13 +84,13 @@ class Word:
         now = normalize_dt(now)
         return cls(
             id=word_id,
-            word=word,
-            meaning=meaning,
-            example=example,
+            word=word.strip(),
+            meaning=meaning.strip(),
+            example=example.strip(),
             status=STATUS_NEW,
             added_at=now,
-            due_at=now,
             last_reviewed_at=None,
+            due_at=now,
             review_count=0,
             ease=2.5,
             interval_days=0,
@@ -111,8 +111,8 @@ class Word:
             example=row["example"],
             status=row["status"],
             added_at=_require_dt(row["added_at"], "added_at"),
-            due_at=_require_dt(row["due_at"], "due_at"),
             last_reviewed_at=last_reviewed_at,
+            due_at=_require_dt(row["due_at"], "due_at"),
             review_count=int(row["review_count"]),
             ease=float(row["ease"]),
             interval_days=int(row["interval_days"]),
@@ -128,10 +128,10 @@ class Word:
             "example": self.example,
             "status": self.status,
             "added_at": format_dt(self.added_at),
-            "due_at": format_dt(self.due_at),
             "last_reviewed_at": format_dt(self.last_reviewed_at),
+            "due_at": format_dt(self.due_at),
             "review_count": str(self.review_count),
-            "ease": str(self.ease),
+            "ease": f"{self.ease:.2f}",
             "interval_days": str(self.interval_days),
             "lapses": str(self.lapses),
             "updated_at": format_dt(self.updated_at),

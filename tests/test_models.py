@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import fields
 from datetime import datetime, timezone
 
 from stickwords.models import (
@@ -12,6 +13,22 @@ from stickwords.models import (
     parse_dt,
 )
 
+REQUIRED_VOCAB_FIELDS = [
+    "id",
+    "word",
+    "meaning",
+    "example",
+    "status",
+    "added_at",
+    "last_reviewed_at",
+    "due_at",
+    "review_count",
+    "ease",
+    "interval_days",
+    "lapses",
+    "updated_at",
+]
+
 
 class ModelTests(unittest.TestCase):
     def test_word_defaults_match_design(self):
@@ -19,9 +36,9 @@ class ModelTests(unittest.TestCase):
 
         word = Word.new_word(
             word_id="w-1",
-            word="abandon",
-            meaning="放弃",
-            example="Do not abandon your plan.",
+            word="  abandon  ",
+            meaning="  放弃  ",
+            example="  Do not abandon your plan.  ",
             now=now,
         )
 
@@ -52,7 +69,10 @@ class ModelTests(unittest.TestCase):
         row = word.to_row()
         restored = Word.from_row(row)
 
+        self.assertEqual(VOCAB_FIELDS, REQUIRED_VOCAB_FIELDS)
+        self.assertEqual([field.name for field in fields(Word)], REQUIRED_VOCAB_FIELDS)
         self.assertEqual(list(row.keys()), VOCAB_FIELDS)
+        self.assertEqual(row["ease"], "2.50")
         self.assertEqual(restored, word)
 
     def test_datetime_format_is_stable_utc_iso(self):
