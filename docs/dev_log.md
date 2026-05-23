@@ -128,7 +128,7 @@
 
 测试结果：
 
-- 需要运行完整 Python 测试：
+- 仓库级 Python 测试已通过 51 个测试：
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
 - 当前 Codex shell 找不到 `pio`，因此真实固件 build/upload/monitor 需要用户在 VSCode PlatformIO Terminal 或其他有 `pio` 的环境中运行：
   `cd C:\Users\ASUS\Documents\M5Stick\firmware`
