@@ -1,16 +1,15 @@
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from stickwords.models import VOCAB_FIELDS, Word
 from stickwords.storage import VocabStore
+from tests.temp_utils import workspace_temp_dir
 
 
 class VocabStoreTests(unittest.TestCase):
     def test_load_missing_file_returns_empty_list(self):
-        with TemporaryDirectory() as temp_dir:
-            store = VocabStore(Path(temp_dir) / "vocab.csv")
+        with workspace_temp_dir() as temp_dir:
+            store = VocabStore(temp_dir / "vocab.csv")
 
             self.assertEqual(store.load(), [])
 
@@ -24,8 +23,8 @@ class VocabStoreTests(unittest.TestCase):
             now=now,
         )
 
-        with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "data" / "vocab.csv"
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "data" / "vocab.csv"
             store = VocabStore(path)
             store.save([word])
 
@@ -34,8 +33,8 @@ class VocabStoreTests(unittest.TestCase):
             self.assertEqual(store.load(), [word])
 
     def test_load_rejects_missing_required_columns(self):
-        with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "vocab.csv"
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "vocab.csv"
             path.write_text("word,meaning,example\nabandon,放弃,x\n", encoding="utf-8")
             store = VocabStore(path)
 

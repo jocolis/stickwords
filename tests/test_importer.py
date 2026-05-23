@@ -1,18 +1,17 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from stickwords.importer import import_words
 from stickwords.models import STATUS_REVIEW, Word
+from tests.temp_utils import workspace_temp_dir
 
 
 class ImporterTests(unittest.TestCase):
     def test_import_new_words_from_simple_csv(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
 
-        with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "import.csv"
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "import.csv"
             path.write_text(
                 "word,meaning,example\n"
                 "abandon,give up,Do not abandon your plan.\n"
@@ -50,8 +49,8 @@ class ImporterTests(unittest.TestCase):
         existing.lapses = 1
         existing.due_at = added_at + timedelta(days=7)
 
-        with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "import.csv"
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "import.csv"
             path.write_text(
                 "word,meaning,example\n"
                 "abandon,give up,Do not abandon your plan.\n",
@@ -81,8 +80,8 @@ class ImporterTests(unittest.TestCase):
     def test_blank_word_rows_fail_without_stopping_import(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
 
-        with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "import.csv"
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "import.csv"
             path.write_text(
                 "word,meaning,example\n"
                 ",empty row,No word.\n"
@@ -102,8 +101,8 @@ class ImporterTests(unittest.TestCase):
     def test_missing_required_column_raises_value_error(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
 
-        with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "import.csv"
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "import.csv"
             path.write_text(
                 "word,meaning\n"
                 "abandon,give up\n",
