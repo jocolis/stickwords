@@ -1,0 +1,11 @@
+[project]
+name = "stickwords"
+version = "0.1.0"
+description = "M5Stick C Plus vocabulary review system using spaced repetition"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

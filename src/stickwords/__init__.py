@@ -1,0 +1,1 @@
+"""StickWords PC backend core."""
