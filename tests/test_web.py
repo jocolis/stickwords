@@ -39,6 +39,11 @@ def call_app(
 
 
 class WebTests(unittest.TestCase):
+    def test_app_module_imports(self):
+        import app
+
+        self.assertTrue(callable(app.main))
+
     def test_get_admin_returns_html(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
         with workspace_temp_dir() as temp_dir:
