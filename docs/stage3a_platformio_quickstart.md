@@ -58,6 +58,13 @@ Connect the M5Stick C Plus by USB, then run:
 pio run --target upload
 ```
 
+On this PC, PlatformIO once auto-detected COM1, but the M5Stick was actually COM5. If upload fails with `No serial data received`, list devices and specify the M5Stick port:
+
+```powershell
+pio device list
+pio run --target upload --upload-port COM5
+```
+
 Expected result:
 
 ```text
@@ -79,6 +86,12 @@ Run:
 
 ```powershell
 pio device monitor
+```
+
+If the device is on COM5, run:
+
+```powershell
+pio device monitor --port COM5
 ```
 
 Expected boot log:
