@@ -74,6 +74,7 @@ void refreshScreenPeriodically(uint32_t now) {
 
 void setup() {
   M5.begin();
+  M5.Imu.Init();
   Serial.begin(115200);
   delay(200);
 

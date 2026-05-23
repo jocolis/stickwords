@@ -28,6 +28,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("Button B released", source)
         self.assertIn("M5.BtnA.isPressed()", source)
         self.assertIn("M5.BtnB.isPressed()", source)
+        self.assertIn("M5.Imu.Init()", source)
         self.assertIn("M5.IMU.getAccelData", source)
         self.assertIn("M5.Lcd.setRotation(1)", source)
         self.assertIn("Serial.printf(\"IMU ax=", source)
