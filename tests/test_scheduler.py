@@ -114,6 +114,39 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(reviewed_existing.interval_days, 5)
         self.assertEqual(reviewed_existing.due_at, now + timedelta(days=5))
 
+    def test_apply_review_accepts_positional_rating_and_reviewed_at(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        word = Word.new_word(
+            word_id="w-1",
+            word="abandon",
+            meaning="give up",
+            example="Do not abandon your plan.",
+            now=now,
+        )
+
+        reviewed = apply_review(word, RATING_GOOD, now)
+
+        self.assertEqual(reviewed.status, STATUS_REVIEW)
+        self.assertEqual(reviewed.review_count, 1)
+        self.assertEqual(reviewed.interval_days, 1)
+
+    def test_good_review_floors_negative_existing_interval_at_one_day(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        word = Word.new_word(
+            word_id="w-1",
+            word="abandon",
+            meaning="give up",
+            example="Do not abandon your plan.",
+            now=now,
+        )
+        word.interval_days = -3
+        word.ease = 2.5
+
+        reviewed = apply_review(word, rating=RATING_GOOD, reviewed_at=now)
+
+        self.assertEqual(reviewed.interval_days, 1)
+        self.assertEqual(reviewed.due_at, now + timedelta(days=1))
+
     def test_get_today_tasks_returns_due_then_new_and_skips_suspended(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
         due_beta = Word.new_word(
@@ -179,6 +212,29 @@ class SchedulerTests(unittest.TestCase):
             [STATUS_REVIEW, STATUS_REVIEW, STATUS_NEW, STATUS_NEW],
         )
         self.assertEqual([word.id for word in tasks], ["w-2", "w-1", "w-5", "w-4"])
+
+    def test_get_today_tasks_accepts_positional_limits(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        due_word = Word.new_word(
+            word_id="w-1",
+            word="abandon",
+            meaning="give up",
+            example="Do not abandon your plan.",
+            now=now - timedelta(days=2),
+        )
+        due_word.status = STATUS_REVIEW
+        due_word.due_at = now - timedelta(days=1)
+        new_word = Word.new_word(
+            word_id="w-2",
+            word="benefit",
+            meaning="advantage",
+            example="This change has a clear benefit.",
+            now=now,
+        )
+
+        tasks = get_today_tasks([new_word, due_word], now, 20, 5)
+
+        self.assertEqual([word.id for word in tasks], ["w-1", "w-2"])
 
 
 if __name__ == "__main__":

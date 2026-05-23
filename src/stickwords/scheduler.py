@@ -16,7 +16,7 @@ from .models import (
 )
 
 
-def apply_review(word: Word, *, rating: str, reviewed_at: datetime) -> Word:
+def apply_review(word: Word, rating: str, reviewed_at: datetime) -> Word:
     reviewed_at = normalize_dt(reviewed_at)
     updated = deepcopy(word)
     updated.review_count += 1
@@ -44,7 +44,7 @@ def apply_review(word: Word, *, rating: str, reviewed_at: datetime) -> Word:
         if updated.interval_days == 0:
             updated.interval_days = 1
         else:
-            updated.interval_days = round(updated.interval_days * updated.ease)
+            updated.interval_days = max(1, round(updated.interval_days * updated.ease))
         updated.due_at = reviewed_at + timedelta(days=updated.interval_days)
         return updated
 
@@ -53,7 +53,6 @@ def apply_review(word: Word, *, rating: str, reviewed_at: datetime) -> Word:
 
 def get_today_tasks(
     words: list[Word],
-    *,
     now: datetime,
     max_due: int = 20,
     max_new: int = 5,
