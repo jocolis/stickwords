@@ -116,3 +116,37 @@
 下一步：
 
 - 阶段 3 M5Stick UI 原型。
+
+## 2026-05-23 阶段 3A：M5Stick 硬件连通验证
+
+完成内容：
+
+- 补充 `docs/stage3a_platformio_quickstart.md`，说明 PlatformIO 编译、上传、串口监视器和真机屏幕检查流程。
+- 更新交接文档，记录 Stage 3A 已准备好进入 PlatformIO 真机验证。
+- 明确 Stage 3A 的范围只验证屏幕、串口、Button A、Button B 和 IMU 加速度读数。
+- 明确本阶段不包含 Wi-Fi、vocabulary sync、review flow。
+
+测试结果：
+
+- 需要运行完整 Python 测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 当前 Codex shell 找不到 `pio`，因此真实固件 build/upload/monitor 需要用户在 VSCode PlatformIO Terminal 或其他有 `pio` 的环境中运行：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+  `pio run --target upload`
+  `pio device monitor`
+
+遇到的问题：
+
+- 第一版固件使用 M5StickCPlus 专用库；如果后续出现编译或硬件兼容性问题，再考虑切换到 M5Unified。
+- Codex 环境不一定能访问 PlatformIO、依赖下载或真实 USB 设备，不能把 Codex 内部验证等同于真机验证。
+
+解决方式：
+
+- 保持 Stage 3A 为最小硬件连通检查，先用 M5StickCPlus 专用库完成屏幕、串口、按键和 IMU 验证。
+- 将真实硬件验证拆成人工检查项：编译、上传、串口 boot log、Button A/B 日志、IMU 数值变化、屏幕状态页。
+
+下一步：
+
+- 在真实 M5Stick C Plus 上执行 Stage 3A 验证。
+- 通过后进入 Stage 3B：使用假数据实现最小复习 UI 状态机。
