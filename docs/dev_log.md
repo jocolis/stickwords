@@ -49,3 +49,35 @@
 下一步：
 
 - 后续 GitHub 仓库名优先使用 `stickwords`。
+
+## 2026-05-23 阶段 1：PC 后端核心
+
+完成内容：
+
+- 实现 StickWords PC 后端核心 Python 包。
+- 实现 CSV 词库读写。
+- 实现 CSV 批量导入和重复单词更新规则。
+- 实现轻量 SM-2 复习算法。
+- 实现今日任务生成。
+- 实现 `review_event_id` 幂等处理。
+- 增加阶段 1 集成测试。
+- 增加仓库内测试临时目录，避免 Windows 沙箱下 `%TEMP%` 权限不稳定。
+
+测试结果：
+
+- `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 通过 24 个测试。
+
+遇到的问题：
+
+- 子代理额度在 Task 4 代码质量审查时耗尽，后续改为主线 inline 执行。
+- Windows 沙箱下，Python `TemporaryDirectory()` 创建的目录可能无法被同一 Python 进程写入。
+
+解决方式：
+
+- 保留每个任务的规格检查和质量检查，但由主线执行后续审查。
+- 新增 `tests/temp_utils.py`，将测试临时目录放到仓库内 `.test-tmp/`，并在 `.gitignore` 中忽略。
+
+下一步：
+
+- 进入阶段 2：PC 网页管理页和 `start_stickwords.bat`。
