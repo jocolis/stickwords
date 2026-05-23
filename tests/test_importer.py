@@ -99,6 +99,23 @@ class ImporterTests(unittest.TestCase):
         self.assertEqual(result.words[0].word, "benefit")
         self.assertEqual(result.words[0].id, "w-000001")
 
+    def test_missing_required_column_raises_value_error(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "import.csv"
+            path.write_text(
+                "word,meaning\n"
+                "abandon,give up\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "import CSV missing required column: example",
+            ):
+                import_words(existing=[], import_path=path, now=now)
+
 
 if __name__ == "__main__":
     unittest.main()
