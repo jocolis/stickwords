@@ -2,7 +2,17 @@
 
 ## Current Status
 
-Stage 1 PC backend core is implemented and tested.
+Stage 2 PC web management page is implemented and tested.
+
+## How To Run
+
+```powershell
+python app.py --host 0.0.0.0 --port 8000 --data-dir data
+```
+
+Then open `http://localhost:8000/admin`.
+
+On Windows, you can also double-click `start_stickwords.bat`.
 
 ## How To Test
 
@@ -10,7 +20,7 @@ Stage 1 PC backend core is implemented and tested.
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 24 tests pass.
+Expected result: all 48 tests pass.
 
 ## What Works
 
@@ -26,15 +36,22 @@ Expected result: all 24 tests pass.
   - generate today's tasks
   - process a review event
   - save and reload updated review state
+- Stage 2 web management page:
+  - `/admin` PC web admin page
+  - add, edit, and suspend words
+  - textarea CSV import
+  - `/api/status` JSON status endpoint
+  - Windows launcher through `start_stickwords.bat`
 
 ## Known Limits
 
-- No web UI yet.
-- No HTTP API yet.
-- No USB configuration yet.
 - No M5Stick firmware yet.
+- No sync API yet.
+- No USB configuration yet.
+- No multi-deck support yet.
+- No multipart file upload yet.
 - Tests use `.test-tmp/` inside the repository because this Windows sandbox can reject Python writes to `TemporaryDirectory()` paths.
 
 ## Next Stage
 
-Build stage 2: PC web management page and `start_stickwords.bat`.
+Stage 3 M5Stick UI prototype.

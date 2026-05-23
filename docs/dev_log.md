@@ -81,3 +81,38 @@
 下一步：
 
 - 进入阶段 2：PC 网页管理页和 `start_stickwords.bat`。
+
+## 2026-05-23 阶段 2：PC 网页管理页
+
+完成内容：
+
+- 完成 StickWords 服务层，统一封装词库加载、保存、添加、编辑、停用、导入和状态统计。
+- 完成 `/admin` 网页管理页。
+- 支持添加、编辑、停用单词。
+- 支持通过 textarea 粘贴 CSV 批量导入。
+- 完成 `/api/status` JSON 状态接口。
+- 完成 `app.py` 和 `start_stickwords.bat` 启动入口。
+- 增加阶段 2 Web 管理页集成测试，覆盖添加单词、textarea CSV 导入、状态接口和最终词库顺序。
+
+测试结果：
+
+- `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 通过 48 个测试。
+
+遇到的问题：
+
+- 先不引入 Flask/FastAPI，避免在早期阶段增加依赖和部署复杂度。
+- multipart 文件上传会增加表单解析和测试复杂度。
+- 表单路由和 HTML 表单契约需要保持一致，否则页面提交和后端处理容易错位。
+- 空表单必须在 route 层拦截，避免写入坏数据。
+
+解决方式：
+
+- 使用标准库 WSGI 实现本阶段 HTTP 管理入口。
+- CSV 批量导入先采用 textarea 粘贴文本，降低上传解析复杂度。
+- 增加 route 层必填字段校验。
+- 增加 Web 路由测试和阶段 2 集成测试，覆盖核心管理流程。
+
+下一步：
+
+- 阶段 3 M5Stick UI 原型。
