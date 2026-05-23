@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from .importer import ImportResult, import_words
 from .models import (
+    STATUS_LEARNING,
     STATUS_NEW,
     STATUS_REVIEW,
     STATUS_SUSPENDED,
@@ -111,6 +112,9 @@ class StickWordsService:
         return {
             "total_words": len(words),
             "new_words": sum(1 for word in words if word.status == STATUS_NEW),
+            "learning_words": sum(
+                1 for word in words if word.status == STATUS_LEARNING
+            ),
             "review_words": sum(1 for word in words if word.status == STATUS_REVIEW),
             "suspended_words": sum(
                 1 for word in words if word.status == STATUS_SUSPENDED
