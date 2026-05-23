@@ -72,10 +72,13 @@ def create_app(service: StickWordsService):
 
             if method == "POST" and path in ("/admin/words", "/admin/add-word"):
                 form = _read_form(environ)
+                word_text = _required(form, "word")
+                meaning = _required(form, "meaning")
+                example = _required(form, "example")
                 word = service.add_word(
-                    form.get("word", ""),
-                    form.get("meaning", ""),
-                    form.get("example", ""),
+                    word_text,
+                    meaning,
+                    example,
                 )
                 return _redirect(
                     start_response,
@@ -88,9 +91,9 @@ def create_app(service: StickWordsService):
             ):
                 form = _read_form(environ)
                 service.edit_word(
-                    _word_id(form),
-                    meaning=form.get("meaning", ""),
-                    example=form.get("example", ""),
+                    _required_word_id(form),
+                    meaning=_required(form, "meaning"),
+                    example=_required(form, "example"),
                 )
                 return _redirect(start_response, "/admin?message=Saved")
 
@@ -99,12 +102,12 @@ def create_app(service: StickWordsService):
                 "/admin/suspend-word",
             ):
                 form = _read_form(environ)
-                service.suspend_word(_word_id(form))
+                service.suspend_word(_required_word_id(form))
                 return _redirect(start_response, "/admin?message=Suspended")
 
             if method == "POST" and path == "/admin/import":
                 form = _read_form(environ)
-                result = service.import_csv_text(form.get("csv_text", ""))
+                result = service.import_csv_text(_required(form, "csv_text"))
                 message = (
                     f"Imported created={result.created} "
                     f"updated={result.updated} failed={result.failed}"
@@ -124,6 +127,22 @@ def create_app(service: StickWordsService):
 
 def _word_id(form: dict[str, str]) -> str:
     return form.get("id") or form.get("word_id", "")
+
+
+def _required(form: dict[str, str], field_name: str) -> str:
+    value = form.get(field_name, "").strip()
+    if value == "":
+        raise ValueError(f"{field_name} is required")
+
+    return value
+
+
+def _required_word_id(form: dict[str, str]) -> str:
+    value = _word_id(form).strip()
+    if value == "":
+        raise ValueError("id is required")
+
+    return value
 
 
 def run_server(
