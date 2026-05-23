@@ -21,10 +21,16 @@ class FirmwareProjectTests(unittest.TestCase):
 
         self.assertIn("#include <M5StickCPlus.h>", source)
         self.assertIn("StickWords Stage 3A boot", source)
+        self.assertIn("Stage 3A Hardware Check", source)
         self.assertIn("Button A pressed", source)
+        self.assertIn("Button A released", source)
         self.assertIn("Button B pressed", source)
-        self.assertIn("getAccelData", source)
-        self.assertIn("setRotation(1)", source)
+        self.assertIn("Button B released", source)
+        self.assertIn("M5.BtnA.isPressed()", source)
+        self.assertIn("M5.BtnB.isPressed()", source)
+        self.assertIn("M5.IMU.getAccelData", source)
+        self.assertIn("M5.Lcd.setRotation(1)", source)
+        self.assertIn("Serial.printf(\"IMU ax=", source)
 
     def test_platformio_build_output_is_ignored(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
