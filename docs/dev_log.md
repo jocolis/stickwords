@@ -569,3 +569,27 @@
 下一步：
 
 - 如果再次出现 `Sync failed / check server`，先在 PC 上打开 `/api/device/tasks?limit=20` 验证后端是否响应。
+
+## 2026-05-24 Stage 4 polish: 一键启动器清理旧后端
+
+完成内容：
+
+- 增强 Windows 启动入口 `start_stickwords.bat`。
+- 新增 `scripts\start_stickwords.ps1` 作为实际启动逻辑。
+- 启动时先用 `netstat -ano` 查找正在监听 `8000` 端口的旧进程。
+- 如果发现旧进程，先停止它，再启动当前项目的 `python app.py --host 0.0.0.0 --port 8000 --data-dir data`。
+- 启动后仍自动打开 `http://localhost:8000/admin`。
+
+测试结果：
+
+- 先写入失败测试，确认旧启动器没有清理旧 8000 后端的逻辑。
+- PowerShell 脚本语法检查通过：
+  `[System.Management.Automation.PSParser]::Tokenize(...)`
+- Web 测试通过 24 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_web -v`
+- 仓库级 Python 全量测试通过 82 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+
+下一步：
+
+- 日常启动优先双击 `start_stickwords.bat`，避免残留旧后端进程占用端口导致 M5Stick 同步失败。

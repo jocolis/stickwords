@@ -88,6 +88,23 @@ class WebTests(unittest.TestCase):
         self.assertTrue(issubclass(web.ThreadedWSGIServer, web.WSGIServer))
         self.assertTrue(web.ThreadedWSGIServer.daemon_threads)
 
+    def test_windows_launcher_restarts_stale_port_8000_backend(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[1]
+        batch = (root / "start_stickwords.bat").read_text(encoding="utf-8")
+        launcher = (root / "scripts" / "start_stickwords.ps1").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("scripts\\start_stickwords.ps1", batch)
+        self.assertIn("netstat -ano", launcher)
+        self.assertIn(":8000", launcher)
+        self.assertIn("LISTENING", launcher)
+        self.assertIn("Stop-Process", launcher)
+        self.assertIn("app.py", launcher)
+        self.assertIn("--host", launcher)
+        self.assertIn("0.0.0.0", launcher)
+        self.assertIn("http://localhost:8000/admin", launcher)
+
     def test_get_admin_returns_html(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
         with workspace_temp_dir() as temp_dir:

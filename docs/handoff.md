@@ -25,6 +25,7 @@ python app.py --host 0.0.0.0 --port 8000 --data-dir data
 Then open `http://localhost:8000/admin`.
 
 On Windows, you can also double-click `start_stickwords.bat`.
+The launcher stops any existing process listening on port `8000`, then starts the current backend and opens `/admin`.
 
 The admin page displays the suggested `STICKWORDS_SERVER_URL` for the M5Stick.
 When opened from `localhost`, the server tries to show a LAN IPv4 URL such as `http://192.168.x.x:8000` instead of `localhost`.
@@ -72,7 +73,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 81 tests pass.
+Expected result: all 82 tests pass.
 
 Firmware build:
 
