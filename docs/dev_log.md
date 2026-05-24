@@ -481,3 +481,34 @@
 
 - 真实运行 `scripts\setup_quick_add_hotkey.ps1` 创建快捷方式。
 - 从 Obsidian 或 Chrome 复制一句英文例句后，用 `Ctrl+Alt+W` 验证日常加词手感。
+
+## 2026-05-24 Stage 4 polish: M5Stick 英文词边界排版
+
+完成内容：
+
+- 将 M5Stick 内容页从固定字符数分页改为按英文 token 排版。
+- 使用 `M5.Lcd.textWidth()` 估算下一个词能否放入当前行，放不下时整词换行。
+- 分页状态从页码改为当前页起始字符位置，Button A 翻到下一页和 Button B 返回上一页都通过同一套排版模拟计算。
+- 保留释义页和例句页的单线流程，不改变评分页、双摇 `good` 或重新评分机制。
+- 对极长单词保留兜底的字符级切分，避免单个超长 token 完全无法显示。
+
+测试结果：
+
+- 先写入失败测试，确认旧固件仍使用 `kContentPageChars` 固定字符数分页，缺少词边界排版函数。
+- 固件测试通过 16 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- 仓库级 Python 全量测试通过 79 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+遇到的问题与决策：
+
+- Codex shell 一开始找不到 `pio`，后来确认实际路径是 `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe`。
+- 首次直接运行时因沙箱不能写入 `.platformio\platforms.lock` 失败，授权后编译通过。
+- 本次只处理英文排版；中文乱码仍属于字体/字库问题，暂不合并处理。
+
+下一步：
+
+- 上传固件到真实 M5Stick C Plus，重点观察 meaning/example 页是否还会把普通英文单词拆成两行。
+- 如果页面显得过密或 `...` 位置影响阅读，再微调 `kContentLineHeight` 或内容区域边界。

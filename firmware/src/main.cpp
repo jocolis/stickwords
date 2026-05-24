@@ -57,7 +57,12 @@ constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kShakeWindowMs = 650;
 constexpr uint32_t kShakeCooldownMs = 900;
-constexpr size_t kContentPageChars = 112;
+constexpr uint8_t kContentTextSize = 2;
+constexpr int16_t kContentX = 6;
+constexpr int16_t kContentY = 6;
+constexpr int16_t kContentMaxX = 234;
+constexpr int16_t kContentMaxY = 132;
+constexpr int16_t kContentLineHeight = 18;
 constexpr float kOrientationThreshold = 0.45F;
 constexpr float kShakeThreshold = 1.65F;
 constexpr float kShakeReleaseThreshold = 1.25F;
@@ -88,7 +93,7 @@ uint32_t reviewBootNonce = 0;
 uint32_t reviewSequence = 0;
 Page currentPage = Page::Word;
 size_t currentCardIndex = 0;
-uint8_t contentPageIndex = 0;
+size_t contentPageStart = 0;
 uint8_t currentRotation = 1;
 uint8_t pendingRotation = 1;
 uint32_t pendingRotationSince = 0;
@@ -153,20 +158,113 @@ void setPage(Page page) {
   logPage();
 }
 
-size_t contentPageCount(const char* text) {
-  const size_t length = std::strlen(text);
-  if (length == 0) {
-    return 1;
+bool isBreakChar(char value) {
+  return value == ' ' || value == '\n' || value == '\r' || value == '\t';
+}
+
+size_t skipBreakChars(const char* text, size_t index) {
+  while (text[index] != '\0' && isBreakChar(text[index])) {
+    index += 1;
   }
-  return (length + kContentPageChars - 1) / kContentPageChars;
+  return index;
+}
+
+size_t nextTokenEnd(const char* text, size_t index) {
+  while (text[index] != '\0' && !isBreakChar(text[index])) {
+    index += 1;
+  }
+  return index;
+}
+
+int16_t textWidthSlice(const char* text, size_t start, size_t end) {
+  String token = "";
+  for (size_t i = start; i < end; ++i) {
+    token += text[i];
+  }
+  return M5.Lcd.textWidth(token);
+}
+
+size_t fitLongTokenEnd(const char* text, size_t start, size_t end) {
+  size_t cursor = start;
+  int16_t cursorX = kContentX;
+  int16_t cursorY = kContentY;
+
+  while (cursor < end) {
+    String character = "";
+    character += text[cursor];
+    const int16_t charWidth = M5.Lcd.textWidth(character);
+    if (cursorX + charWidth > kContentMaxX) {
+      cursorX = kContentX;
+      cursorY += kContentLineHeight;
+    }
+    if (cursorY + kContentLineHeight > kContentMaxY) {
+      return cursor > start ? cursor : cursor + 1;
+    }
+    cursorX += charWidth;
+    cursor += 1;
+  }
+  return end;
+}
+
+size_t findNextContentPageStart(const char* text, size_t start) {
+  M5.Lcd.setTextSize(kContentTextSize);
+  const size_t length = std::strlen(text);
+  size_t index = skipBreakChars(text, start);
+  size_t lastFitEnd = index;
+  int16_t cursorX = kContentX;
+  int16_t cursorY = kContentY;
+
+  while (index < length) {
+    const size_t tokenStart = index;
+    const size_t tokenEnd = nextTokenEnd(text, index);
+    const int16_t tokenWidth = textWidthSlice(text, tokenStart, tokenEnd);
+    const int16_t spaceWidth = cursorX == kContentX ? 0 : M5.Lcd.textWidth(" ");
+
+    if (cursorX != kContentX && cursorX + spaceWidth + tokenWidth > kContentMaxX) {
+      cursorX = kContentX;
+      cursorY += kContentLineHeight;
+    }
+    if (cursorY + kContentLineHeight > kContentMaxY) {
+      return tokenStart > start ? tokenStart : fitLongTokenEnd(text, tokenStart, tokenEnd);
+    }
+
+    if (tokenWidth > kContentMaxX - kContentX && cursorX == kContentX) {
+      const size_t fittedEnd = fitLongTokenEnd(text, tokenStart, tokenEnd);
+      if (fittedEnd < tokenEnd) {
+        return fittedEnd;
+      }
+    }
+
+    cursorX += spaceWidth + tokenWidth;
+    lastFitEnd = tokenEnd;
+    index = skipBreakChars(text, tokenEnd);
+  }
+
+  return lastFitEnd >= length ? length : skipBreakChars(text, lastFitEnd);
+}
+
+size_t findPreviousContentPageStart(const char* text, size_t start) {
+  size_t previous = 0;
+  size_t cursor = 0;
+
+  while (cursor < start) {
+    const size_t next = findNextContentPageStart(text, cursor);
+    if (next >= start || next == cursor) {
+      return previous;
+    }
+    previous = next;
+    cursor = next;
+  }
+
+  return previous;
 }
 
 bool hasMoreContentPage(const char* text) {
-  return static_cast<size_t>(contentPageIndex + 1) < contentPageCount(text);
+  return findNextContentPageStart(text, contentPageStart) < std::strlen(text);
 }
 
-void setContentPage(Page page, uint8_t pageIndex) {
-  contentPageIndex = pageIndex;
+void setContentPage(Page page, size_t pageStart) {
+  contentPageStart = pageStart;
   setPage(page);
 }
 
@@ -249,32 +347,81 @@ void drawWordPage() {
   drawCenteredText(card.word, 52, 3);
 }
 
-void drawContentPage(const char* text) {
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(6, 6);
+void drawWrappedContentPage(const char* text) {
+  M5.Lcd.setTextSize(kContentTextSize);
+  size_t index = skipBreakChars(text, contentPageStart);
+  size_t lastDrawnEnd = index;
+  int16_t cursorX = kContentX;
+  int16_t cursorY = kContentY;
 
-  const size_t start = static_cast<size_t>(contentPageIndex) * kContentPageChars;
-  const size_t length = std::strlen(text);
-  const size_t end = start + kContentPageChars < length ? start + kContentPageChars : length;
+  while (text[index] != '\0') {
+    const size_t tokenStart = index;
+    const size_t tokenEnd = nextTokenEnd(text, index);
+    const int16_t tokenWidth = textWidthSlice(text, tokenStart, tokenEnd);
+    const int16_t spaceWidth = cursorX == kContentX ? 0 : M5.Lcd.textWidth(" ");
 
-  for (size_t i = start; i < end; ++i) {
-    M5.Lcd.print(text[i]);
+    if (cursorX != kContentX && cursorX + spaceWidth + tokenWidth > kContentMaxX) {
+      cursorX = kContentX;
+      cursorY += kContentLineHeight;
+    }
+    if (cursorY + kContentLineHeight > kContentMaxY) {
+      break;
+    }
+
+    M5.Lcd.setCursor(cursorX, cursorY);
+    if (cursorX != kContentX) {
+      M5.Lcd.print(" ");
+      cursorX += spaceWidth;
+    }
+
+    if (tokenWidth > kContentMaxX - kContentX && cursorX == kContentX) {
+      size_t charIndex = tokenStart;
+      while (charIndex < tokenEnd) {
+        String character = "";
+        character += text[charIndex];
+        const int16_t charWidth = M5.Lcd.textWidth(character);
+        if (cursorX + charWidth > kContentMaxX) {
+          cursorX = kContentX;
+          cursorY += kContentLineHeight;
+          if (cursorY + kContentLineHeight > kContentMaxY) {
+            index = charIndex;
+            break;
+          }
+          M5.Lcd.setCursor(cursorX, cursorY);
+        }
+        M5.Lcd.print(character);
+        cursorX += charWidth;
+        charIndex += 1;
+        lastDrawnEnd = charIndex;
+      }
+      if (lastDrawnEnd < tokenEnd) {
+        break;
+      }
+    } else {
+      for (size_t i = tokenStart; i < tokenEnd; ++i) {
+        M5.Lcd.print(text[i]);
+      }
+      cursorX += tokenWidth;
+      lastDrawnEnd = tokenEnd;
+    }
+
+    index = skipBreakChars(text, tokenEnd);
   }
 
-  if (end < length) {
+  if (findNextContentPageStart(text, contentPageStart) < std::strlen(text)) {
+    M5.Lcd.setCursor(kContentMaxX - M5.Lcd.textWidth("..."), kContentMaxY - kContentLineHeight);
     M5.Lcd.print("...");
   }
-  M5.Lcd.println();
 }
 
 void drawMeaningPage() {
   const Card card = currentCard();
-  drawContentPage(card.meaning);
+  drawWrappedContentPage(card.meaning);
 }
 
 void drawExamplePage() {
   const Card card = currentCard();
-  drawContentPage(card.example);
+  drawWrappedContentPage(card.example);
 }
 
 void drawRatingOption(Rating rating) {
@@ -740,7 +887,7 @@ void resetReviewSet() {
     reviewResults[i] = {false, Rating::Forgot, 0};
   }
   currentCardIndex = 0;
-  contentPageIndex = 0;
+  contentPageStart = 0;
   selectedRating = Rating::Forgot;
   lastSubmittedIndex = -1;
   returnAfterReRatingIndex = -1;
@@ -769,7 +916,7 @@ void submitRating() {
 
   if (isReRating && returnAfterReRatingIndex >= 0) {
     currentCardIndex = static_cast<size_t>(returnAfterReRatingIndex);
-    contentPageIndex = 0;
+    contentPageStart = 0;
     returnAfterReRatingIndex = -1;
     isReRating = false;
     setPage(currentCardIndex >= activeCardCount() ? Page::Done : Page::Word);
@@ -784,7 +931,7 @@ void submitRating() {
   }
 
   selectedRating = Rating::Forgot;
-  contentPageIndex = 0;
+  contentPageStart = 0;
   setPage(Page::Word);
 }
 
@@ -857,14 +1004,14 @@ void handleButtonAShortPress() {
       break;
     case Page::Meaning:
       if (hasMoreContentPage(card.meaning)) {
-        setContentPage(Page::Meaning, contentPageIndex + 1);
+        setContentPage(Page::Meaning, findNextContentPageStart(card.meaning, contentPageStart));
       } else {
         setContentPage(Page::Example, 0);
       }
       break;
     case Page::Example:
       if (hasMoreContentPage(card.example)) {
-        setContentPage(Page::Example, contentPageIndex + 1);
+        setContentPage(Page::Example, findNextContentPageStart(card.example, contentPageStart));
       } else {
         selectedRating = reviewResults[currentCardIndex].hasRating
                              ? reviewResults[currentCardIndex].rating
@@ -898,23 +1045,21 @@ void handleButtonBShortPress() {
       tryReRatePrevious();
       break;
     case Page::Meaning:
-      if (contentPageIndex > 0) {
-        setContentPage(Page::Meaning, contentPageIndex - 1);
+      if (contentPageStart > 0) {
+        setContentPage(Page::Meaning, findPreviousContentPageStart(card.meaning, contentPageStart));
       } else {
         setPage(Page::Word);
       }
       break;
     case Page::Example:
-      if (contentPageIndex > 0) {
-        setContentPage(Page::Example, contentPageIndex - 1);
+      if (contentPageStart > 0) {
+        setContentPage(Page::Example, findPreviousContentPageStart(card.example, contentPageStart));
       } else {
-        setContentPage(Page::Meaning,
-                       static_cast<uint8_t>(contentPageCount(card.meaning) - 1));
+        setContentPage(Page::Meaning, findPreviousContentPageStart(card.meaning, std::strlen(card.meaning)));
       }
       break;
     case Page::Rating:
-      setContentPage(Page::Example,
-                     static_cast<uint8_t>(contentPageCount(card.example) - 1));
+      setContentPage(Page::Example, findPreviousContentPageStart(card.example, std::strlen(card.example)));
       break;
     case Page::Done:
       tryReRatePrevious();

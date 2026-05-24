@@ -294,10 +294,10 @@ class FirmwareProjectTests(unittest.TestCase):
     def test_stage3b_uses_single_flow_content_paging(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
 
-        self.assertIn("constexpr size_t kContentPageChars", source)
-        self.assertIn("uint8_t contentPageIndex", source)
-        self.assertIn("contentPageCount(", source)
-        self.assertIn("drawContentPage(", source)
+        self.assertIn("size_t contentPageStart", source)
+        self.assertIn("findNextContentPageStart(", source)
+        self.assertIn("findPreviousContentPageStart(", source)
+        self.assertIn("drawWrappedContentPage(", source)
         self.assertIn("hasMoreContentPage(", source)
         self.assertIn("Page::Meaning", source)
         self.assertIn("Page::Example", source)
@@ -308,10 +308,28 @@ class FirmwareProjectTests(unittest.TestCase):
 
     def test_content_pages_use_most_of_landscape_screen(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
-        match = re.search(r"constexpr size_t kContentPageChars = (\d+);", source)
 
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 100)
+        self.assertIn("constexpr int16_t kContentMaxY", source)
+        self.assertIn("size_t nextTokenEnd(", source)
+        self.assertIn("size_t findNextContentPageStart(", source)
+        self.assertIn("size_t findPreviousContentPageStart(", source)
+        self.assertIn("void drawWrappedContentPage(", source)
+        self.assertNotIn("kContentPageChars", source)
+
+    def test_content_pages_wrap_at_word_boundaries(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+        draw_body = firmware_function_body(source, "drawWrappedContentPage")
+        next_body = firmware_function_body(source, "findNextContentPageStart")
+
+        self.assertIn("tokenEnd = nextTokenEnd", draw_body)
+        self.assertIn("textWidthSlice(text, tokenStart, tokenEnd)", draw_body)
+        self.assertIn("cursorX != kContentX", draw_body)
+        self.assertIn("cursorY + kContentLineHeight > kContentMaxY", draw_body)
+        self.assertIn("lastDrawnEnd", draw_body)
+        self.assertIn("findNextContentPageStart", draw_body)
+        self.assertIn("skipBreakChars(text, start)", next_body)
+        self.assertIn("nextTokenEnd(text, index)", next_body)
+        self.assertIn("lastFitEnd", next_body)
 
     def test_stage3c_uses_stable_imu_landscape_auto_rotation(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
