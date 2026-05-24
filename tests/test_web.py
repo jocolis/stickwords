@@ -463,6 +463,35 @@ class WebTests(unittest.TestCase):
             )
             self.assertEqual(response_body, "")
 
+    def test_post_import_reports_duplicate_rows_in_redirect_message(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            app = create_app(service)
+            form = urlencode(
+                {
+                    "csv_text": (
+                        "word,meaning,example\n"
+                        "abandon,first,First example.\n"
+                        "abandon,second,Second example.\n"
+                    )
+                }
+            )
+
+            status, headers, _ = call_app(app, "POST", "/admin/import", form)
+
+            self.assertEqual(status, "303 See Other")
+            self.assertEqual(
+                headers["Location"],
+                (
+                    "/admin?message=Imported+created%3D1+updated%3D1+"
+                    "failed%3D0+duplicate_rows%3D1"
+                ),
+            )
+            loaded = service.load_words()
+            self.assertEqual(len(loaded), 1)
+            self.assertEqual(loaded[0].meaning, "second")
+
     def test_post_blank_import_returns_400_without_creating_words(self):
         with workspace_temp_dir() as temp_dir:
             service = StickWordsService(temp_dir)

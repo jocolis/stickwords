@@ -77,6 +77,31 @@ class ImporterTests(unittest.TestCase):
         self.assertEqual(updated.lapses, 1)
         self.assertEqual(updated.updated_at, expected_now)
 
+    def test_duplicate_words_inside_import_are_reported_and_last_row_wins(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+
+        with workspace_temp_dir() as temp_dir:
+            path = temp_dir / "import.csv"
+            path.write_text(
+                "word,meaning,example\n"
+                "abandon,first,First example.\n"
+                "benefit,advantage,A clear benefit.\n"
+                "abandon,second,Second example.\n",
+                encoding="utf-8",
+            )
+
+            result = import_words(existing=[], import_path=path, now=now)
+
+        by_word = {word.word: word for word in result.words}
+        self.assertEqual(result.created, 2)
+        self.assertEqual(result.updated, 1)
+        self.assertEqual(result.failed, 0)
+        self.assertEqual(result.duplicate_rows, 1)
+        self.assertEqual(by_word["abandon"].meaning, "second")
+        self.assertEqual(by_word["abandon"].example, "Second example.")
+        self.assertEqual(by_word["abandon"].id, "w-000001")
+        self.assertEqual(by_word["benefit"].id, "w-000002")
+
     def test_blank_word_rows_fail_without_stopping_import(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
 

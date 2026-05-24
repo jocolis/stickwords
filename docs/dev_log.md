@@ -405,3 +405,25 @@
 
 - 上传到真实 M5Stick C Plus，观察 meaning/example 页面是否更充分利用屏幕高度。
 - 如果仍然偏保守，可以继续微调 `kContentPageChars`；如果出现页面文字压到底部太满，则回调到 96 左右。
+
+## 2026-05-24 Stage 4 polish: CSV 重复行提示
+
+完成内容：
+
+- 导入 CSV 时记录同一个文件内部重复出现的 `word` 行数。
+- 重复行不算失败，仍然保持“最后一行覆盖前面内容”的现有规则。
+- 网页导入成功后的提示增加 `duplicate_rows=N`，仅在存在重复行时显示。
+
+测试结果：
+
+- 先写入失败测试，确认旧导入结果没有 `duplicate_rows` 字段，旧网页提示不显示重复行数量。
+- Importer 测试通过 5 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_importer -v`
+- Web 路由测试通过 22 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_web -v`
+- Service 测试通过 7 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_service -v`
+
+下一步：
+
+- 后续可以把导入结果展示做成更清晰的结果面板，而不是只依赖 URL message。

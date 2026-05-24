@@ -235,6 +235,8 @@ def create_app(service: StickWordsService, lan_host_lookup=None):
                     f"Imported created={result.created} "
                     f"updated={result.updated} failed={result.failed}"
                 )
+                if result.duplicate_rows:
+                    message = f"{message} duplicate_rows={result.duplicate_rows}"
                 return _redirect(
                     start_response,
                     f"/admin?message={quote_plus(message)}",

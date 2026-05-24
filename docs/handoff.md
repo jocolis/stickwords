@@ -71,7 +71,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 71 tests pass.
+Expected result: all 73 tests pass.
 
 Firmware build:
 
@@ -85,7 +85,7 @@ Expected result: PlatformIO build succeeds.
 ## What Works
 
 - CSV vocab loading and saving.
-- CSV import with duplicate-word update rules.
+- CSV import with duplicate-word update rules and duplicate-row reporting.
 - Lightweight SM-2 review updates.
 - Today-task generation.
 - Idempotent review-event processing.

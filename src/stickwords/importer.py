@@ -14,6 +14,7 @@ class ImportResult:
     created: int
     updated: int
     failed: int
+    duplicate_rows: int
     errors: list[str]
 
 
@@ -36,9 +37,11 @@ def import_words(
     path = Path(import_path)
     words = list(existing)
     by_word = {word.word.casefold(): word for word in words}
+    import_seen_words: set[str] = set()
     created = 0
     updated = 0
     failed = 0
+    duplicate_rows = 0
     errors: list[str] = []
 
     with path.open("r", encoding="utf-8-sig", newline="") as file:
@@ -59,6 +62,10 @@ def import_words(
                 continue
 
             key = word_text.casefold()
+            if key in import_seen_words:
+                duplicate_rows += 1
+            import_seen_words.add(key)
+
             if key in by_word:
                 word = by_word[key]
                 word.word = word_text
@@ -84,5 +91,6 @@ def import_words(
         created=created,
         updated=updated,
         failed=failed,
+        duplicate_rows=duplicate_rows,
         errors=errors,
     )
