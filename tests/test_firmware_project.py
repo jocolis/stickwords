@@ -173,6 +173,14 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("parseDeviceTasksJson(", source)
         self.assertIn("buildPendingReviewsJson(", source)
         self.assertIn("markPendingReviewsUploaded()", source)
+        self.assertNotIn("2026-05-24T00:00:00Z", source)
+        self.assertIn("serverGeneratedAt", source)
+        self.assertIn("esp_random", source)
+        self.assertIn("reviewSequence", source)
+        self.assertIn("uploadResponseAccepted(", source)
+        self.assertIn("replace pending review", source)
+        self.assertIn("parseJsonStringAt(", source)
+        self.assertIn("escaped = true", source)
 
 
 if __name__ == "__main__":

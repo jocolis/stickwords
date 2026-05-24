@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <cmath>
 #include <cstring>
+#include <esp_system.h>
 
 #if __has_include("secrets.h")
 #include "secrets.h"
@@ -51,6 +52,7 @@ constexpr size_t kMaxWordIdLength = 24;
 constexpr size_t kMaxWordLength = 32;
 constexpr size_t kMaxMeaningLength = 192;
 constexpr size_t kMaxExampleLength = 256;
+constexpr size_t kMaxTimestampLength = 25;
 constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kShakeWindowMs = 650;
@@ -71,6 +73,7 @@ struct PendingReview {
   char wordId[kMaxWordIdLength];
   Rating rating;
   uint32_t reviewedAtMs;
+  uint32_t sequence;
   bool uploaded;
 };
 
@@ -79,6 +82,10 @@ DeviceCard syncedCards[kMaxSyncedCards] = {};
 PendingReview pendingReviews[kMaxPendingReviews] = {};
 size_t syncedCardCount = 0;
 size_t pendingReviewCount = 0;
+char serverGeneratedAt[kMaxTimestampLength] = "";
+uint32_t tasksFetchedAtMs = 0;
+uint32_t reviewBootNonce = 0;
+uint32_t reviewSequence = 0;
 Page currentPage = Page::Word;
 size_t currentCardIndex = 0;
 uint8_t contentPageIndex = 0;
@@ -376,6 +383,39 @@ void copyBounded(char* dest, size_t destSize, const String& value) {
   value.substring(0, destSize - 1).toCharArray(dest, destSize);
 }
 
+String parseJsonStringAt(const String& source, int quoteIndex, int* nextIndex = nullptr) {
+  String value = "";
+  bool escaped = false;
+  for (int i = quoteIndex + 1; i < source.length(); ++i) {
+    const char current = source[i];
+    if (escaped) {
+      if (current == 'n') {
+        value += '\n';
+      } else if (current == 'r') {
+        value += '\r';
+      } else if (current == 't') {
+        value += '\t';
+      } else {
+        value += current;
+      }
+      escaped = false;
+      continue;
+    }
+    if (current == '\\') {
+      escaped = true;
+      continue;
+    }
+    if (current == '"') {
+      if (nextIndex != nullptr) {
+        *nextIndex = i + 1;
+      }
+      return value;
+    }
+    value += current;
+  }
+  return "";
+}
+
 String jsonStringValue(const String& object, const char* key) {
   const String marker = String("\"") + key + "\":";
   const int markerIndex = object.indexOf(marker);
@@ -386,19 +426,79 @@ String jsonStringValue(const String& object, const char* key) {
   if (start < 0) {
     return "";
   }
-  const int end = object.indexOf('"', start + 1);
-  if (end < 0) {
-    return "";
+  return parseJsonStringAt(object, start);
+}
+
+int findJsonArrayEnd(const String& body, int arrayStart) {
+  bool inString = false;
+  bool escaped = false;
+  int depth = 0;
+  for (int i = arrayStart; i < body.length(); ++i) {
+    const char current = body[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (current == '\\') {
+        escaped = true;
+      } else if (current == '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (current == '"') {
+      inString = true;
+    } else if (current == '[') {
+      depth += 1;
+    } else if (current == ']') {
+      depth -= 1;
+      if (depth == 0) {
+        return i;
+      }
+    }
   }
-  return object.substring(start + 1, end);
+  return -1;
+}
+
+int findJsonObjectEnd(const String& body, int objectStart, int limit) {
+  bool inString = false;
+  bool escaped = false;
+  int depth = 0;
+  for (int i = objectStart; i <= limit && i < body.length(); ++i) {
+    const char current = body[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (current == '\\') {
+        escaped = true;
+      } else if (current == '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (current == '"') {
+      inString = true;
+    } else if (current == '{') {
+      depth += 1;
+    } else if (current == '}') {
+      depth -= 1;
+      if (depth == 0) {
+        return i;
+      }
+    }
+  }
+  return -1;
 }
 
 bool parseDeviceTasksJson(const String& body) {
   syncedCardCount = 0;
+  copyBounded(serverGeneratedAt, sizeof(serverGeneratedAt), jsonStringValue(body, "generated_at"));
   int arrayStart = body.indexOf("\"tasks\"");
   arrayStart = body.indexOf('[', arrayStart);
-  const int arrayEnd = body.indexOf(']', arrayStart);
-  if (arrayStart < 0 || arrayEnd < 0) {
+  if (arrayStart < 0) {
+    return false;
+  }
+  const int arrayEnd = findJsonArrayEnd(body, arrayStart);
+  if (arrayEnd < 0) {
     return false;
   }
 
@@ -408,7 +508,7 @@ bool parseDeviceTasksJson(const String& body) {
     if (objectStart < 0 || objectStart > arrayEnd) {
       break;
     }
-    const int objectEnd = body.indexOf('}', objectStart);
+    const int objectEnd = findJsonObjectEnd(body, objectStart, arrayEnd);
     if (objectEnd < 0 || objectEnd > arrayEnd) {
       break;
     }
@@ -439,6 +539,7 @@ bool fetchDeviceTasks() {
     Serial.printf("Sync failed status=%d\n", status);
     http.end();
     syncedCardCount = 0;
+    serverGeneratedAt[0] = '\0';
     drawStatusMessage("Sync failed", "using samples");
     return false;
   }
@@ -448,9 +549,11 @@ bool fetchDeviceTasks() {
   if (!parseDeviceTasksJson(body)) {
     Serial.println("Sync parse failed");
     syncedCardCount = 0;
+    serverGeneratedAt[0] = '\0';
     drawStatusMessage("Sync failed", "using samples");
     return false;
   }
+  tasksFetchedAtMs = millis();
 
   if (syncedCardCount == 0) {
     Serial.println("No due cards");
@@ -463,7 +566,25 @@ bool fetchDeviceTasks() {
   return true;
 }
 
+String currentReviewTimestamp() {
+  if (serverGeneratedAt[0] != '\0') {
+    return String(serverGeneratedAt);
+  }
+  return "1970-01-01T00:00:00Z";
+}
+
 void queuePendingReview(const char* wordId, Rating rating) {
+  for (size_t i = 0; i < pendingReviewCount; ++i) {
+    PendingReview& existing = pendingReviews[i];
+    if (!existing.uploaded && std::strcmp(existing.wordId, wordId) == 0) {
+      Serial.printf("replace pending review word=%s\n", wordId);
+      existing.rating = rating;
+      existing.reviewedAtMs = millis();
+      existing.sequence = ++reviewSequence;
+      return;
+    }
+  }
+
   if (pendingReviewCount >= kMaxPendingReviews) {
     Serial.println("Pending review queue full");
     return;
@@ -473,7 +594,18 @@ void queuePendingReview(const char* wordId, Rating rating) {
   copyBounded(pending.wordId, sizeof(pending.wordId), String(wordId));
   pending.rating = rating;
   pending.reviewedAtMs = millis();
+  pending.sequence = ++reviewSequence;
   pending.uploaded = false;
+}
+
+size_t pendingReviewUploadCount() {
+  size_t count = 0;
+  for (size_t i = 0; i < pendingReviewCount; ++i) {
+    if (!pendingReviews[i].uploaded) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 String buildPendingReviewsJson() {
@@ -490,12 +622,15 @@ String buildPendingReviewsJson() {
     first = false;
 
     const String eventId =
-        String("m5stick-c-plus-") + String(pending.reviewedAtMs) + "-" + pending.wordId;
+        String("m5stick-c-plus-") + String(reviewBootNonce, HEX) + "-" +
+        String(pending.sequence) + "-" + pending.wordId;
     body += "{\"word_id\":\"";
     body += pending.wordId;
     body += "\",\"rating\":\"";
     body += ratingName(pending.rating);
-    body += "\",\"reviewed_at\":\"2026-05-24T00:00:00Z\",\"event_id\":\"";
+    body += "\",\"reviewed_at\":\"";
+    body += currentReviewTimestamp();
+    body += "\",\"event_id\":\"";
     body += eventId;
     body += "\"}";
   }
@@ -507,8 +642,71 @@ void markPendingReviewsUploaded() {
   pendingReviewCount = 0;
 }
 
+String compactJsonMarkers(const String& body) {
+  String compact = "";
+  bool inString = false;
+  bool escaped = false;
+  for (int i = 0; i < body.length(); ++i) {
+    const char current = body[i];
+    if (inString) {
+      compact += current;
+      if (escaped) {
+        escaped = false;
+      } else if (current == '\\') {
+        escaped = true;
+      } else if (current == '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (current == '"') {
+      inString = true;
+      compact += current;
+    } else if (current != ' ' && current != '\n' && current != '\r' && current != '\t') {
+      compact += current;
+    }
+  }
+  return compact;
+}
+
+int jsonIntValue(const String& compactBody, const char* key) {
+  const String marker = String("\"") + key + "\":";
+  const int markerIndex = compactBody.indexOf(marker);
+  if (markerIndex < 0) {
+    return -1;
+  }
+  int cursor = markerIndex + marker.length();
+  int end = cursor;
+  while (end < compactBody.length() && compactBody[end] >= '0' && compactBody[end] <= '9') {
+    end += 1;
+  }
+  if (end == cursor) {
+    return -1;
+  }
+  return compactBody.substring(cursor, end).toInt();
+}
+
+bool uploadResponseAccepted(const String& response, size_t attemptedReviews) {
+  const String compact = compactJsonMarkers(response);
+  if (compact.indexOf("\"failed\":0") < 0) {
+    return false;
+  }
+
+  const int accepted = jsonIntValue(compact, "accepted");
+  const int skipped = jsonIntValue(compact, "skipped_duplicate");
+  if (accepted < 0 || skipped < 0) {
+    return false;
+  }
+  return static_cast<size_t>(accepted + skipped) >= attemptedReviews;
+}
+
 bool uploadPendingReviews() {
   if (pendingReviewCount == 0 || WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+
+  const size_t attemptedReviews = pendingReviewUploadCount();
+  if (attemptedReviews == 0) {
     return false;
   }
 
@@ -528,6 +726,10 @@ bool uploadPendingReviews() {
   }
 
   Serial.println("Review upload response=" + response);
+  if (!uploadResponseAccepted(response, attemptedReviews)) {
+    Serial.println("Review upload response kept pending reviews");
+    return false;
+  }
   markPendingReviewsUploaded();
   return true;
 }
@@ -734,6 +936,7 @@ void setup() {
   M5.Lcd.setRotation(currentRotation);
   M5.Lcd.setTextFont(1);
   M5.Lcd.setTextDatum(TL_DATUM);
+  reviewBootNonce = esp_random();
 
   Serial.println("StickWords Stage 3C boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
