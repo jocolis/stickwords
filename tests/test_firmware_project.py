@@ -165,6 +165,14 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("STICKWORDS_SERVER_URL", source)
         self.assertIn("WiFi...", source)
         self.assertIn("Sync failed", source)
+        self.assertIn("HTTPClient http", source)
+        self.assertIn('/api/device/tasks?limit=', source)
+        self.assertIn('/api/device/reviews', source)
+        self.assertIn("http.GET()", source)
+        self.assertIn("http.POST(", source)
+        self.assertIn("parseDeviceTasksJson(", source)
+        self.assertIn("buildPendingReviewsJson(", source)
+        self.assertIn("markPendingReviewsUploaded()", source)
 
 
 if __name__ == "__main__":

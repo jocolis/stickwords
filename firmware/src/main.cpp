@@ -334,6 +334,8 @@ Rating nextRating(Rating rating) {
   return Rating::Forgot;
 }
 
+void resetReviewSet();
+
 void drawStatusMessage(const char* line1, const char* line2 = "") {
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setCursor(8, 36);
@@ -347,18 +349,187 @@ void drawStatusMessage(const char* line1, const char* line2 = "") {
 
 bool connectWifi() {
   drawStatusMessage("WiFi...");
-  Serial.printf("WiFi connecting ssid=%s\n", STICKWORDS_WIFI_SSID);
-  return false;
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(STICKWORDS_WIFI_SSID, STICKWORDS_WIFI_PASSWORD);
+
+  const uint32_t startedAt = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < 12000) {
+    delay(250);
+    M5.update();
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi failed");
+    drawStatusMessage("WiFi failed", "using samples");
+    return false;
+  }
+
+  Serial.print("WiFi connected ip=");
+  Serial.println(WiFi.localIP());
+  return true;
+}
+
+void copyBounded(char* dest, size_t destSize, const String& value) {
+  if (destSize == 0) {
+    return;
+  }
+  value.substring(0, destSize - 1).toCharArray(dest, destSize);
+}
+
+String jsonStringValue(const String& object, const char* key) {
+  const String marker = String("\"") + key + "\":";
+  const int markerIndex = object.indexOf(marker);
+  if (markerIndex < 0) {
+    return "";
+  }
+  const int start = object.indexOf('"', markerIndex + marker.length());
+  if (start < 0) {
+    return "";
+  }
+  const int end = object.indexOf('"', start + 1);
+  if (end < 0) {
+    return "";
+  }
+  return object.substring(start + 1, end);
+}
+
+bool parseDeviceTasksJson(const String& body) {
+  syncedCardCount = 0;
+  int arrayStart = body.indexOf("\"tasks\"");
+  arrayStart = body.indexOf('[', arrayStart);
+  const int arrayEnd = body.indexOf(']', arrayStart);
+  if (arrayStart < 0 || arrayEnd < 0) {
+    return false;
+  }
+
+  int cursor = arrayStart;
+  while (syncedCardCount < kMaxSyncedCards) {
+    const int objectStart = body.indexOf('{', cursor);
+    if (objectStart < 0 || objectStart > arrayEnd) {
+      break;
+    }
+    const int objectEnd = body.indexOf('}', objectStart);
+    if (objectEnd < 0 || objectEnd > arrayEnd) {
+      break;
+    }
+
+    const String object = body.substring(objectStart, objectEnd + 1);
+    DeviceCard& card = syncedCards[syncedCardCount];
+    copyBounded(card.id, sizeof(card.id), jsonStringValue(object, "id"));
+    copyBounded(card.word, sizeof(card.word), jsonStringValue(object, "word"));
+    copyBounded(card.meaning, sizeof(card.meaning), jsonStringValue(object, "meaning"));
+    copyBounded(card.example, sizeof(card.example), jsonStringValue(object, "example"));
+    if (card.id[0] != '\0' && card.word[0] != '\0') {
+      syncedCardCount += 1;
+    }
+    cursor = objectEnd + 1;
+  }
+
+  return true;
 }
 
 bool fetchDeviceTasks() {
-  drawStatusMessage("Sync failed", "using samples");
-  Serial.printf("Sync failed url=%s\n", STICKWORDS_SERVER_URL);
-  return false;
+  drawStatusMessage("Sync...");
+  HTTPClient http;
+  const String url = String(STICKWORDS_SERVER_URL) + "/api/device/tasks?limit=20";
+  Serial.println("GET " + url);
+  http.begin(url);
+  const int status = http.GET();
+  if (status != 200) {
+    Serial.printf("Sync failed status=%d\n", status);
+    http.end();
+    syncedCardCount = 0;
+    drawStatusMessage("Sync failed", "using samples");
+    return false;
+  }
+
+  const String body = http.getString();
+  http.end();
+  if (!parseDeviceTasksJson(body)) {
+    Serial.println("Sync parse failed");
+    syncedCardCount = 0;
+    drawStatusMessage("Sync failed", "using samples");
+    return false;
+  }
+
+  if (syncedCardCount == 0) {
+    Serial.println("No due cards");
+    drawStatusMessage("No due cards");
+    return true;
+  }
+
+  Serial.printf("Synced cards=%u\n", static_cast<unsigned>(syncedCardCount));
+  resetReviewSet();
+  return true;
+}
+
+void queuePendingReview(const char* wordId, Rating rating) {
+  if (pendingReviewCount >= kMaxPendingReviews) {
+    Serial.println("Pending review queue full");
+    return;
+  }
+
+  PendingReview& pending = pendingReviews[pendingReviewCount++];
+  copyBounded(pending.wordId, sizeof(pending.wordId), String(wordId));
+  pending.rating = rating;
+  pending.reviewedAtMs = millis();
+  pending.uploaded = false;
+}
+
+String buildPendingReviewsJson() {
+  String body = "{\"device_id\":\"m5stick-c-plus\",\"reviews\":[";
+  bool first = true;
+  for (size_t i = 0; i < pendingReviewCount; ++i) {
+    PendingReview& pending = pendingReviews[i];
+    if (pending.uploaded) {
+      continue;
+    }
+    if (!first) {
+      body += ",";
+    }
+    first = false;
+
+    const String eventId =
+        String("m5stick-c-plus-") + String(pending.reviewedAtMs) + "-" + pending.wordId;
+    body += "{\"word_id\":\"";
+    body += pending.wordId;
+    body += "\",\"rating\":\"";
+    body += ratingName(pending.rating);
+    body += "\",\"reviewed_at\":\"2026-05-24T00:00:00Z\",\"event_id\":\"";
+    body += eventId;
+    body += "\"}";
+  }
+  body += "]}";
+  return body;
+}
+
+void markPendingReviewsUploaded() {
+  pendingReviewCount = 0;
 }
 
 bool uploadPendingReviews() {
-  return false;
+  if (pendingReviewCount == 0 || WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+
+  HTTPClient http;
+  const String url = String(STICKWORDS_SERVER_URL) + "/api/device/reviews";
+  const String body = buildPendingReviewsJson();
+  Serial.println("POST " + url);
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  const int status = http.POST(body);
+  const String response = http.getString();
+  http.end();
+
+  if (status != 200) {
+    Serial.printf("Review upload failed status=%d\n", status);
+    return false;
+  }
+
+  Serial.println("Review upload response=" + response);
+  markPendingReviewsUploaded();
+  return true;
 }
 
 void resetReviewSet() {
@@ -390,6 +561,7 @@ void submitRating() {
   result.rating = selectedRating;
   result.reviewCount += 1;
   lastSubmittedIndex = static_cast<int>(currentCardIndex);
+  queuePendingReview(currentWordId(), selectedRating);
   uploadPendingReviews();
 
   if (isReRating && returnAfterReRatingIndex >= 0) {
