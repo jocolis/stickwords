@@ -16,7 +16,7 @@ Then open `http://localhost:8000/admin`.
 
 On Windows, you can also double-click `start_stickwords.bat`.
 
-## How To Run Firmware Hardware Check
+## How To Run Current Firmware
 
 Open a PlatformIO terminal, then run:
 
@@ -27,7 +27,8 @@ pio run --target upload --upload-port COM5
 pio device monitor --port COM5
 ```
 
-See `docs/stage3a_platformio_quickstart.md` for beginner-friendly steps and expected output.
+Current Stage 3B expected boot log: `StickWords Stage 3B boot`.
+Manually validate the review flow before moving to the next stage.
 
 Note: PlatformIO auto-detected COM1 on this PC, but the M5Stick appeared as COM5. Use COM5 explicitly unless the device list changes.
 
@@ -59,13 +60,9 @@ Expected result: all 51 tests pass.
   - textarea CSV import
   - `/api/status` JSON status endpoint
   - Windows launcher through `start_stickwords.bat`
-- Stage 3A firmware skeleton:
-  - PlatformIO project under `firmware/`
-  - fixed landscape status screen
-  - serial boot log
-  - Button A/Button B detection
-  - IMU acceleration readout
-  - real-device build, upload, serial monitor, Button A/B, and IMU checks passed on COM5
+- Stage 3A hardware validation history:
+  - real-device build, upload, serial monitor, Button A/B, and IMU checks passed earlier on COM5
+  - current firmware has since moved to Stage 3B and no longer exposes IMU readout
 - Stage 3B review UI prototype:
   - three built-in fake cards
   - word, summary, full example, rating, and done pages
