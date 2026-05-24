@@ -380,3 +380,28 @@
 
 - 在浏览器刷新 `/admin`，用文件选择框导入真实 CSV。
 - 继续观察 M5Stick 同步和评分上传链路。
+
+## 2026-05-24 Stage 4 polish: M5Stick 内容页屏幕利用率
+
+完成内容：
+
+- 将固件内容页每页容量从 58 字符提高到 112 字符。
+- 内容页显式从屏幕左上方 `(6, 6)` 开始绘制，减少下半屏空白造成的不必要翻页。
+- 保留释义页和例句页的多页机制，长内容仍然可以继续翻页。
+- 中文乱码暂不处理，仍作为后续字体/字库专项。
+
+测试结果：
+
+- 先写入失败测试，确认旧固件内容页容量低于 100 字符。
+- 固件测试通过 15 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- 仓库级 Python 全量测试通过 71 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 固件编译通过：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+
+下一步：
+
+- 上传到真实 M5Stick C Plus，观察 meaning/example 页面是否更充分利用屏幕高度。
+- 如果仍然偏保守，可以继续微调 `kContentPageChars`；如果出现页面文字压到底部太满，则回调到 96 左右。

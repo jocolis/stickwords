@@ -71,7 +71,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 70 tests pass.
+Expected result: all 71 tests pass.
 
 Firmware build:
 
@@ -103,6 +103,7 @@ Expected result: PlatformIO build succeeds.
 - Firmware review UI:
   - word, meaning pages, example pages, rating page, and done page
   - long meaning and example content can page forward through the single review flow
+  - content pages use a larger per-page text budget to reduce unnecessary page turns
   - compact layout without the old title, page counter, or footer hints
   - Button A short press advances pages or cycles rating
   - Button A long press submits rating

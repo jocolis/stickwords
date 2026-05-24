@@ -306,6 +306,13 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertNotIn("M5.Lcd.println(card.word);", source)
         self.assertNotIn('M5.Lcd.print("ex: ");', source)
 
+    def test_content_pages_use_most_of_landscape_screen(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+        match = re.search(r"constexpr size_t kContentPageChars = (\d+);", source)
+
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 100)
+
     def test_stage3c_uses_stable_imu_landscape_auto_rotation(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
 

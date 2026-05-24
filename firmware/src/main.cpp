@@ -57,7 +57,7 @@ constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kShakeWindowMs = 650;
 constexpr uint32_t kShakeCooldownMs = 900;
-constexpr size_t kContentPageChars = 58;
+constexpr size_t kContentPageChars = 112;
 constexpr float kOrientationThreshold = 0.45F;
 constexpr float kShakeThreshold = 1.65F;
 constexpr float kShakeReleaseThreshold = 1.25F;
@@ -251,6 +251,7 @@ void drawWordPage() {
 
 void drawContentPage(const char* text) {
   M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(6, 6);
 
   const size_t start = static_cast<size_t>(contentPageIndex) * kContentPageChars;
   const size_t length = std::strlen(text);
