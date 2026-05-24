@@ -85,6 +85,36 @@ class AdminViewTests(unittest.TestCase):
         self.assertIn('accept=".csv,text/csv"', html)
         self.assertIn('name="csv_text"', html)
 
+    def test_words_table_has_search_and_no_inline_edit_column(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        word = Word.new_word(
+            word_id="w-000001",
+            word="abandon",
+            meaning="放弃",
+            example="Do not abandon your plan.",
+            now=now,
+        )
+
+        html = render_admin_page(
+            status={
+                "total_words": 1,
+                "new_words": 1,
+                "review_words": 0,
+                "suspended_words": 0,
+                "due_today": 1,
+            },
+            words=[word],
+        )
+
+        self.assertIn('id="word-search"', html)
+        self.assertIn('placeholder="Search words"', html)
+        self.assertIn('data-search-text="abandon 放弃 do not abandon your plan. new"', html)
+        self.assertIn("addEventListener('input'", html)
+        self.assertNotIn("<th>Edit</th>", html)
+        self.assertNotIn('action="/admin/edit-word"', html)
+        self.assertNotIn("<button type=\"submit\">Save</button>", html)
+        self.assertIn("<th>Suspend</th>", html)
+
 
 if __name__ == "__main__":
     unittest.main()

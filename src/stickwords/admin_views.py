@@ -21,7 +21,7 @@ def render_admin_page(
 
     rows_html = "\n".join(_render_word_row(word) for word in words)
     if not rows_html:
-        rows_html = '<tr><td colspan="7">No words yet.</td></tr>'
+        rows_html = '<tr><td colspan="6">No words yet.</td></tr>'
 
     return f"""<!doctype html>
 <html lang="en">
@@ -178,6 +178,13 @@ def render_admin_page(
     .table-wrap {{
       overflow-x: auto;
     }}
+    .table-tools {{
+      margin-bottom: 12px;
+    }}
+    .table-tools input {{
+      margin-bottom: 0;
+      max-width: 28rem;
+    }}
   </style>
 </head>
 <body>
@@ -221,6 +228,9 @@ def render_admin_page(
 
   <section aria-labelledby="words-heading">
     <h2 id="words-heading">Words table</h2>
+    <div class="table-tools">
+      <label>Search words <input id="word-search" type="search" placeholder="Search words"></label>
+    </div>
     <div class="table-wrap">
     <table>
       <thead>
@@ -230,7 +240,6 @@ def render_admin_page(
           <th>Example</th>
           <th>Status</th>
           <th>Due Date</th>
-          <th>Edit</th>
           <th>Suspend</th>
         </tr>
       </thead>
@@ -241,6 +250,16 @@ def render_admin_page(
     </div>
   </section>
 </main>
+<script>
+  const wordSearch = document.getElementById('word-search');
+  const wordRows = Array.from(document.querySelectorAll('tr[data-search-text]'));
+  wordSearch.addEventListener('input', () => {{
+    const query = wordSearch.value.trim().toLowerCase();
+    for (const row of wordRows) {{
+      row.hidden = query !== '' && !row.dataset.searchText.includes(query);
+    }}
+  }});
+</script>
 </body>
 </html>"""
 
@@ -268,20 +287,15 @@ def _render_stat(label: str, value: int) -> str:
 
 def _render_word_row(word: Word) -> str:
     word_id = _html(word.id)
-    return f"""        <tr>
+    search_text = _html(
+        f"{word.word} {word.meaning} {word.example} {word.status}".casefold()
+    )
+    return f"""        <tr data-search-text="{search_text}">
           <td>{_html(word.word)}</td>
           <td>{_html(word.meaning)}</td>
           <td>{_html(word.example)}</td>
           <td>{_html(word.status)}</td>
           <td>{_html(format_dt(word.due_at))}</td>
-          <td>
-            <form method="post" action="/admin/edit-word">
-              <input type="hidden" name="word_id" value="{word_id}">
-              <label>Meaning <input name="meaning" value="{_html(word.meaning)}" required></label>
-              <label>Example <textarea name="example" required>{_html(word.example)}</textarea></label>
-              <button type="submit">Save</button>
-            </form>
-          </td>
           <td>
             <form method="post" action="/admin/suspend-word">
               <input type="hidden" name="word_id" value="{word_id}">

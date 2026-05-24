@@ -427,3 +427,25 @@
 下一步：
 
 - 后续可以把导入结果展示做成更清晰的结果面板，而不是只依赖 URL message。
+
+## 2026-05-24 Stage 4 polish: Words table 搜索与简化
+
+完成内容：
+
+- 移除管理页 Words table 中的 `Edit` 列和每行内联编辑表单。
+- 保留 `Suspend` 列，继续支持安全地停用不想复习的单词。
+- 增加表格搜索框，浏览器端实时过滤单词行。
+- 搜索范围包括 `word`、`meaning`、`example` 和 `status`。
+- 后端编辑接口暂时保留，只是不再出现在常用网页界面中。
+
+测试结果：
+
+- 先写入失败测试，确认旧页面没有搜索框且仍显示编辑列。
+- 页面渲染测试通过 4 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_admin_views -v`
+- Web 路由测试通过 22 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_web -v`
+
+下一步：
+
+- 真实使用中观察搜索框是否足够；如果词库很大，再考虑服务端分页或后端搜索。

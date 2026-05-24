@@ -71,7 +71,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 73 tests pass.
+Expected result: all 74 tests pass.
 
 Firmware build:
 
@@ -95,6 +95,7 @@ Expected result: PlatformIO build succeeds.
   - CSV import by file picker or textarea text fallback
   - `/api/status` JSON status endpoint
   - suggested M5Stick LAN server URL when opened from localhost
+  - searchable words table without inline edit controls
   - Windows launcher through `start_stickwords.bat`
 - Device sync API:
   - `GET /api/device/tasks?limit=20`
