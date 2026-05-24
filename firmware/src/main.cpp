@@ -3,7 +3,12 @@
 #include <WiFi.h>
 #include <cmath>
 #include <cstring>
+
+#if __has_include("secrets.h")
 #include "secrets.h"
+#else
+#error "Missing firmware/include/secrets.h: copy firmware/include/secrets.example.h to firmware/include/secrets.h, then edit Wi-Fi and PC URL values."
+#endif
 
 namespace {
 
@@ -159,7 +164,10 @@ void setContentPage(Page page, uint8_t pageIndex) {
 }
 
 size_t activeCardCount() {
-  return syncedCardCount > 0 ? syncedCardCount : kCardCount;
+  if (syncedCardCount == 0) {
+    return kCardCount;
+  }
+  return syncedCardCount > kMaxSyncedCards ? kMaxSyncedCards : syncedCardCount;
 }
 
 const char* currentWordId() {
