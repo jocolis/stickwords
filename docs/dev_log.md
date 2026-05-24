@@ -626,3 +626,11 @@
 下一步：
 
 - 上传固件到真机，做一次人工断电测试：先同步到任务、断开 Wi-Fi 或关闭后端、重启 M5Stick，确认能进入缓存任务；完成一次评分后再恢复后端，确认 pending review 会上传。
+
+真机验证：
+
+- 用户在 M5Stick C Plus 串口中确认 Wi-Fi 已连接到 `192.168.5.172`。
+- 当 PC 后端不可达时，固件请求 `http://192.168.5.105:8000/api/device/tasks?limit=20` 返回 `Sync failed status=-1`，随后成功 `Loaded cached cards=1` 并进入缓存复习。
+- 离线评分并重启后，固件日志显示 `Loaded pending reviews=1`，说明待上传评分已从 flash 恢复。
+- PC 后端恢复可达后，固件成功 POST 到 `/api/device/reviews`，收到 `{"accepted": 1, "skipped_duplicate": 0, "failed": 0, "errors": []}`。
+- 再次重启后，固件日志显示 `Loaded pending reviews=0`，说明补传成功后本地 pending 队列已清空。

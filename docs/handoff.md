@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Stage 4 minimum PC-to-M5Stick sync is implemented and ready for real-device validation.
+Stage 4 minimum PC-to-M5Stick sync is implemented and validated on the real M5Stick C Plus.
 Quick Add helper scripts are available for adding example-backed words from the PC.
 
 Completed milestones:
@@ -13,7 +13,7 @@ Completed milestones:
 - Stage 3B local review UI prototype.
 - Stage 3C-1 left/right landscape auto-rotation, validated on the real device.
 - Stage 3C-2 rating-page double-shake `good`, validated on the real device.
-- Stage 4 PC device sync API and firmware HTTP sync path.
+- Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, and pending-review recovery.
 
 ## How To Run The PC Backend
 
@@ -166,13 +166,22 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - DeepSeek generation requires `DEEPSEEK_API_KEY`; without it, the helper is manual-entry only.
 - Tests use `.test-tmp/` inside the repository because this Windows sandbox can reject Python writes to `TemporaryDirectory()` paths.
 
+## Real-Device Validation Notes
+
+On the real M5Stick C Plus, Stage 4 was validated with these serial-log signals:
+
+- Wi-Fi connected at `192.168.5.172`.
+- PC backend was reachable at `http://192.168.5.105:8000`.
+- When the backend was unreachable, firmware logged `Sync failed status=-1`, then loaded `Loaded cached cards=1` and continued with cached review cards.
+- After an offline review and reboot, firmware logged `Loaded pending reviews=1`, proving the pending queue survived power loss/restart.
+- After the backend became reachable again, firmware posted to `/api/device/reviews` and received `{"accepted": 1, "skipped_duplicate": 0, "failed": 0, "errors": []}`.
+- On the next reboot, firmware logged `Loaded pending reviews=0`, proving the uploaded pending review was cleared.
+
 ## Next Stage
 
-Run Stage 4 on the real M5Stick C Plus:
+Choose the next product milestone:
 
-1. Start the PC backend with `--host 0.0.0.0`.
-2. Confirm the PC LAN IPv4 address with `ipconfig`.
-3. Put that address into `firmware\include\secrets.h`.
-4. Build and upload firmware with PlatformIO.
-5. Watch serial logs for Wi-Fi connection, `GET /api/device/tasks`, and `POST /api/device/reviews`.
-6. Complete one review on the M5Stick and confirm `data\vocab.csv` updates through the PC admin page.
+1. Improve M5Stick Chinese rendering.
+2. Add easier Wi-Fi/server configuration instead of editing `secrets.h`.
+3. Improve offline-review semantics beyond the last cached due-card batch.
+4. Prepare the GitHub publication path: README, screenshots, license, and repository hygiene.
