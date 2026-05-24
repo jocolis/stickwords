@@ -2,15 +2,22 @@
 
 ## Current Status
 
-Stage 2 PC web management page is implemented and tested.
-Stage 3A M5Stick hardware check firmware is implemented and validated on the real device.
-Stage 3B review UI prototype is implemented.
-Stage 3C-1 left/right landscape auto-rotation is implemented and validated on the real device.
-Stage 3C-2 rating-page double-shake `good` is implemented and ready for real-device validation.
+Stage 4 minimum PC-to-M5Stick sync is implemented and ready for real-device validation.
 
-## How To Run
+Completed milestones:
+
+- Stage 1 PC backend core.
+- Stage 2 PC web management page.
+- Stage 3A M5Stick hardware check, validated on the real device.
+- Stage 3B local review UI prototype.
+- Stage 3C-1 left/right landscape auto-rotation, validated on the real device.
+- Stage 3C-2 rating-page double-shake `good`, validated on the real device.
+- Stage 4 PC device sync API and firmware HTTP sync path.
+
+## How To Run The PC Backend
 
 ```powershell
+cd C:\Users\ASUS\Documents\M5Stick
 python app.py --host 0.0.0.0 --port 8000 --data-dir data
 ```
 
@@ -18,7 +25,28 @@ Then open `http://localhost:8000/admin`.
 
 On Windows, you can also double-click `start_stickwords.bat`.
 
-## How To Run Current Firmware
+## How To Configure Firmware Sync
+
+Create a private local secrets file from the committed template:
+
+```powershell
+cd C:\Users\ASUS\Documents\M5Stick\firmware
+Copy-Item include\secrets.example.h include\secrets.h
+```
+
+Edit `firmware\include\secrets.h`:
+
+```cpp
+#define STICKWORDS_WIFI_SSID "your-2.4ghz-wifi-name"
+#define STICKWORDS_WIFI_PASSWORD "your-wifi-password"
+#define STICKWORDS_SERVER_URL "http://192.168.x.x:8000"
+```
+
+Use the PC's LAN IPv4 address in `STICKWORDS_SERVER_URL`, not `localhost`, because `localhost` on the M5Stick means the M5Stick itself.
+
+`firmware\include\secrets.h` is intentionally ignored by Git. Do not commit real Wi-Fi credentials.
+
+## How To Build, Upload, And Monitor Firmware
 
 Open a PlatformIO terminal, then run:
 
@@ -29,18 +57,27 @@ pio run --target upload --upload-port COM5
 pio device monitor --port COM5
 ```
 
-Current Stage 3C expected boot log: `StickWords Stage 3C boot`.
-Manually validate the review flow and rating-page double-shake `good` before moving to the next stage.
+Current Stage 4 expected boot log: `StickWords Stage 4 boot`.
 
-Note: PlatformIO auto-detected COM1 on this PC, but the M5Stick appeared as COM5. Use COM5 explicitly unless the device list changes.
+Note: PlatformIO previously auto-detected COM1 on this PC, but the M5Stick appeared as COM5. Use COM5 explicitly unless the device list changes.
 
 ## How To Test
 
 ```powershell
+cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 55 tests pass.
+Expected result: all 66 tests pass.
+
+Firmware build:
+
+```powershell
+cd C:\Users\ASUS\Documents\M5Stick\firmware
+pio run
+```
+
+Expected result: PlatformIO build succeeds.
 
 ## What Works
 
@@ -49,58 +86,55 @@ Expected result: all 55 tests pass.
 - Lightweight SM-2 review updates.
 - Today-task generation.
 - Idempotent review-event processing.
-- Stage 1 integration path:
-  - import words
-  - save vocab
-  - load vocab
-  - generate today's tasks
-  - process a review event
-  - save and reload updated review state
-- Stage 2 web management page:
-  - `/admin` PC web admin page
+- PC web admin page:
+  - `/admin`
   - add, edit, and suspend words
   - textarea CSV import
   - `/api/status` JSON status endpoint
   - Windows launcher through `start_stickwords.bat`
-- Stage 3A hardware validation history:
-  - real-device build, upload, serial monitor, Button A/B, and IMU checks passed earlier on COM5
-  - current firmware has since moved to Stage 3B and no longer exposes IMU readout
-- Stage 3B review UI prototype:
-  - three built-in fake cards
-  - word, meaning, example, rating, and done pages
-  - meaning and example pages both use the same content paging path for long text
-  - compact review layout without the old title, page counter, or button-hint footer
-  - larger word, meaning, example, rating, and done-page text
+- Device sync API:
+  - `GET /api/device/tasks?limit=20`
+  - `POST /api/device/reviews`
+  - bounded review-event processing with accepted-count response
+- Firmware review UI:
+  - word, meaning pages, example pages, rating page, and done page
+  - long meaning and example content can page forward through the single review flow
+  - compact layout without the old title, page counter, or footer hints
   - Button A short press advances pages or cycles rating
   - Button A long press submits rating
-  - Button B returns to previous page or re-rates previous card
-  - in-memory rating overwrite logs
-- Stage 3C-1 left/right landscape auto-rotation:
-  - reuses M5Stick IMU accelerometer readings
-  - switches between landscape rotations 1 and 3 after a stable 500 ms orientation signal
-  - redraws the current review page without changing review progress
-  - logs orientation changes to serial
-  - real-device direction mapping was confirmed correct
-- Stage 3C-2 rating-page double-shake `good`:
-  - detects two acceleration peaks within a short window only on the rating page
-  - sets the selected rating to `good` and submits immediately
-  - keeps Button B re-rate behavior available on the next word page
-  - logs `Shake good word=...` to serial
+  - Button B returns to previous page or re-rates the previous card from the next word page
+- Firmware orientation and gesture input:
+  - left/right landscape auto-rotation using IMU readings
+  - rating-page double-shake submits `good`
+- Firmware HTTP sync:
+  - connects to 2.4 GHz Wi-Fi using `secrets.h`
+  - fetches due cards from the PC backend at boot
+  - falls back to built-in sample cards when Wi-Fi or sync fails
+  - queues review results in RAM
+  - posts queued reviews to the PC backend after rating submission
+  - keeps pending reviews when upload fails or the server response is not accepted
 
 ## Known Limits
 
-- Stage 3B still uses built-in fake cards.
-- Stage 3B ratings are stored only in RAM and disappear after reboot.
-- Firmware does not implement tilt scoring yet.
-- Double-shake `good` is not yet validated on the real device and may need threshold tuning.
-- Auto-rotation currently depends on hand-held tilt. If the device is perfectly flat and only yaw-rotated 180 degrees, the accelerometer cannot distinguish left/right orientation.
-- Firmware does not implement Wi-Fi sync yet.
-- No sync API yet.
-- No USB configuration yet.
+- Stage 4 uses a manually configured LAN URL; there is no automatic PC discovery yet.
+- The M5Stick must be on the same reachable LAN as the PC backend.
+- Windows firewall may block inbound access to port 8000 until allowed.
+- Firmware sync currently uses plain HTTP without authentication.
+- Pending firmware reviews are stored in RAM and are lost on reboot or power loss before upload.
+- Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
+- Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
+- No USB configuration UI yet.
 - No multi-deck support yet.
 - No multipart file upload yet.
 - Tests use `.test-tmp/` inside the repository because this Windows sandbox can reject Python writes to `TemporaryDirectory()` paths.
 
 ## Next Stage
 
-Validate Stage 3C-2 on the real M5Stick C Plus. If double-shake is too sensitive or too hard to trigger, tune `kShakeThreshold`, `kShakeReleaseThreshold`, `kShakeWindowMs`, and `kShakeCooldownMs`.
+Run Stage 4 on the real M5Stick C Plus:
+
+1. Start the PC backend with `--host 0.0.0.0`.
+2. Confirm the PC LAN IPv4 address with `ipconfig`.
+3. Put that address into `firmware\include\secrets.h`.
+4. Build and upload firmware with PlatformIO.
+5. Watch serial logs for Wi-Fi connection, `GET /api/device/tasks`, and `POST /api/device/reviews`.
+6. Complete one review on the M5Stick and confirm `data\vocab.csv` updates through the PC admin page.

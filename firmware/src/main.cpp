@@ -938,7 +938,7 @@ void setup() {
   M5.Lcd.setTextDatum(TL_DATUM);
   reviewBootNonce = esp_random();
 
-  Serial.println("StickWords Stage 3C boot");
+  Serial.println("StickWords Stage 4 boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
   if (connectWifi()) {

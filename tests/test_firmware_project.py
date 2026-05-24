@@ -250,7 +250,7 @@ class FirmwareProjectTests(unittest.TestCase):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
 
         self.assertIn("#include <M5StickCPlus.h>", source)
-        self.assertIn("StickWords Stage 3C boot", source)
+        self.assertIn("StickWords Stage 4 boot", source)
         self.assertIn("enum class Page", source)
         self.assertIn("Word", source)
         self.assertIn("Meaning", source)
@@ -289,7 +289,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertNotIn("B: back", source)
         self.assertNotIn("B: re-rate", source)
         self.assertNotIn("Hold A: save", source)
-        self.assertIn("StickWords Stage 3C boot", source)
+        self.assertIn("StickWords Stage 4 boot", source)
 
     def test_stage3b_uses_single_flow_content_paging(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")

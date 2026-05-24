@@ -289,3 +289,49 @@
 
 - 上传到真实 M5Stick C Plus，在评分页测试双摇是否稳定触发 `good`。
 - 如果太灵敏或太迟钝，调节 `kShakeThreshold`、`kShakeReleaseThreshold`、`kShakeWindowMs` 和 `kShakeCooldownMs`。
+
+真机验证：
+
+- 用户已确认评分页双摇 `good` 在真实 M5Stick C Plus 上测试成功。
+
+## 2026-05-24 阶段 4：PC 与 M5Stick 最小同步
+
+完成内容：
+
+- 增加固件配置模板 `firmware/include/secrets.example.h`。
+- 保持私有配置 `firmware/include/secrets.h` 不进入 Git。
+- 增加 PC 端设备同步接口：
+  - `GET /api/device/tasks?limit=20`
+  - `POST /api/device/reviews`
+- 增加固件 Wi-Fi 与 HTTP 同步流程：
+  - 使用 `secrets.h` 中的 2.4 GHz Wi-Fi 配置联网。
+  - 启动时从 PC 后端拉取待复习卡片。
+  - Wi-Fi 或同步失败时回退到内置示例卡片。
+  - 在 RAM 中排队评分结果。
+  - 提交评分后向 PC 后端上传待提交结果。
+  - 上传失败或服务端响应不符合预期时保留待提交结果。
+- 将固件启动日志更新为 `StickWords Stage 4 boot`。
+- 更新交接文档，补充 Stage 4 的配置、编译、上传、验证流程和已知限制。
+
+验证结果：
+
+- `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 通过 66 个测试。
+- `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+- `pio run`
+- PlatformIO 固件编译通过。
+
+遇到的问题与决策：
+
+- M5Stick 不能用 `localhost` 访问 PC 后端；`STICKWORDS_SERVER_URL` 必须填写 PC 的局域网 IPv4 地址。
+- 本阶段不做自动发现 PC，需要手动编辑 `secrets.h`。
+- 待上传评分仍然只保存在 RAM 中；如果断电发生在上传成功之前，这部分评分会丢失。
+- 固件 JSON 解析器只面向当前后端响应格式，刻意保持小而有界，不作为通用 JSON 解析器使用。
+- 成功上传后的重新评分在本阶段会作为新的 review event 发送。
+
+下一步：
+
+- 在 PC 端运行 `python app.py --host 0.0.0.0 --port 8000 --data-dir data`。
+- 在 `firmware\include\secrets.h` 中填写真实 2.4 GHz Wi-Fi 和 PC 局域网地址。
+- 上传到真实 M5Stick C Plus，确认串口日志出现 Wi-Fi 连接、任务拉取和评分上传。
+- 在 PC 管理页或 `data\vocab.csv` 中确认 M5Stick 提交的评分已经生效。
