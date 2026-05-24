@@ -111,6 +111,19 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("firmware/.pio/", ignore)
         self.assertIn("firmware/.vscode/.browse.c_cpp.db*", ignore)
 
+    def test_stage4_private_firmware_config_is_template_only(self):
+        ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        example = ROOT / "firmware" / "include" / "secrets.example.h"
+
+        self.assertIn("firmware/include/secrets.h", ignore)
+        self.assertTrue(example.exists())
+        text = example.read_text(encoding="utf-8")
+        self.assertIn("STICKWORDS_WIFI_SSID", text)
+        self.assertIn("STICKWORDS_WIFI_PASSWORD", text)
+        self.assertIn("STICKWORDS_SERVER_URL", text)
+        self.assertIn("your-2.4ghz-wifi-name", text)
+        self.assertFalse((ROOT / "firmware" / "include" / "secrets.h").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
