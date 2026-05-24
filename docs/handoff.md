@@ -4,6 +4,7 @@
 
 Stage 2 PC web management page is implemented and tested.
 Stage 3A M5Stick hardware check firmware is implemented and validated on the real device.
+Stage 3B review UI prototype is implemented and ready for real-device validation.
 
 ## How To Run
 
@@ -65,10 +66,20 @@ Expected result: all 51 tests pass.
   - Button A/Button B detection
   - IMU acceleration readout
   - real-device build, upload, serial monitor, Button A/B, and IMU checks passed on COM5
+- Stage 3B review UI prototype:
+  - three built-in fake cards
+  - word, summary, full example, rating, and done pages
+  - Button A short press advances pages or cycles rating
+  - Button A long press submits rating
+  - Button B returns to previous page or re-rates previous card
+  - in-memory rating overwrite logs
 
 ## Known Limits
 
-- Firmware does not implement review UI yet.
+- Stage 3B still uses built-in fake cards.
+- Stage 3B ratings are stored only in RAM and disappear after reboot.
+- Firmware does not implement tilt scoring yet.
+- Firmware does not implement double-shake `good` yet.
 - Firmware does not implement Wi-Fi sync yet.
 - No sync API yet.
 - No USB configuration yet.
@@ -78,4 +89,4 @@ Expected result: all 51 tests pass.
 
 ## Next Stage
 
-Build Stage 3B: minimum review UI prototype with fake local cards.
+Validate Stage 3B on the real M5Stick C Plus. After it passes, build Stage 3C: add tilt rating, double-shake `good`, and left/right hand auto-rotation one at a time.

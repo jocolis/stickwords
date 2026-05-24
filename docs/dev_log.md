@@ -154,3 +154,38 @@
 下一步：
 
 - 进入 Stage 3B：使用假数据实现最小复习 UI 状态机。
+
+## 2026-05-24 阶段 3B：按键版最小复习 UI
+
+完成内容：
+
+- 将 Stage 3A 硬件检查固件升级为 Stage 3B 本地复习 UI 原型。
+- 内置 3 张假数据卡片，不连接 PC 后端。
+- 实现单线流程：单词页 -> 释义摘要页 -> 完整例句页 -> 评分页 -> 下一词。
+- 评分页支持 Button A 短按循环 `forgot / hard / good`，Button A 长按提交。
+- 实现下一词单词页 Button B 回上一词评分页重新评分。
+- 重新评分覆盖 RAM 中上一条评分结果，并打印串口日志。
+- 完成 3 张卡片后显示 done 页面。
+
+测试结果：
+
+- 仓库级 Python 全量测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 固件编译：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+
+遇到的问题：
+
+- Stage 3B 仍是假数据和 RAM 结果，重启后评分消失。
+- 为保持手感，评分提交后不加声音、震动或停顿，只通过串口记录结果。
+
+解决方式：
+
+- 使用明确的 Page enum、Rating enum 和 RAM ReviewResult 数组组织状态机。
+- 只在 UI 状态变化时重绘屏幕，降低闪烁。
+
+下一步：
+
+- 在真实 M5Stick C Plus 上验证 Stage 3B 交互。
+- 通过后进入 Stage 3C。
