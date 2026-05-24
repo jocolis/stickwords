@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .test-tmp/
+data/*.csv
 firmware/.pio/
 firmware/.vscode/.browse.c_cpp.db*
 firmware/.vscode/c_cpp_properties.json

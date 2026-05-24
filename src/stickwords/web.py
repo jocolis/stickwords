@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from email import policy
+from email.parser import BytesParser
 import json
 import socket
 from pathlib import Path
@@ -15,6 +17,43 @@ def _read_form(environ: dict) -> dict[str, str]:
     body = environ["wsgi.input"].read(length).decode("utf-8")
     parsed = parse_qs(body, keep_blank_values=True)
     return {key: values[0] for key, values in parsed.items()}
+
+
+def _read_import_csv_text(environ: dict) -> str:
+    content_type = environ.get("CONTENT_TYPE", "")
+    if content_type.startswith("multipart/form-data"):
+        form = _read_multipart_form(environ)
+        csv_file = form.get("csv_file", "").strip()
+        if csv_file:
+            return csv_file
+        return form.get("csv_text", "")
+
+    return _read_form(environ).get("csv_text", "")
+
+
+def _read_multipart_form(environ: dict) -> dict[str, str]:
+    length = int(environ.get("CONTENT_LENGTH") or 0)
+    body = environ["wsgi.input"].read(length)
+    content_type = environ.get("CONTENT_TYPE", "")
+    message_bytes = (
+        f"Content-Type: {content_type}\r\n"
+        "MIME-Version: 1.0\r\n\r\n"
+    ).encode("utf-8") + body
+    message = BytesParser(policy=policy.default).parsebytes(message_bytes)
+
+    fields: dict[str, str] = {}
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+
+        name = part.get_param("name", header="content-disposition")
+        if not name:
+            continue
+
+        payload = part.get_payload(decode=True) or b""
+        fields[name] = payload.decode(part.get_content_charset() or "utf-8-sig")
+
+    return fields
 
 
 def _read_json(environ: dict) -> dict:
@@ -187,8 +226,11 @@ def create_app(service: StickWordsService, lan_host_lookup=None):
                 return _redirect(start_response, "/admin?message=Suspended")
 
             if method == "POST" and path == "/admin/import":
-                form = _read_form(environ)
-                result = service.import_csv_text(_required(form, "csv_text"))
+                csv_text = _read_import_csv_text(environ).strip()
+                if csv_text == "":
+                    raise ValueError("csv_text or csv_file is required")
+
+                result = service.import_csv_text(csv_text)
                 message = (
                     f"Imported created={result.created} "
                     f"updated={result.updated} failed={result.failed}"

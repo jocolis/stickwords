@@ -357,3 +357,26 @@
 
 - 启动 PC 后端后，在管理页查看 `M5Stick server URL`。
 - 将这个 URL 写入 `firmware\include\secrets.h` 的 `STICKWORDS_SERVER_URL`，再上传固件做真机同步验证。
+
+## 2026-05-24 Stage 4 polish: CSV 文件导入与管理页样式
+
+完成内容：
+
+- 管理页 Import CSV 表单增加 `.csv` 文件选择框。
+- 保留 CSV 文本粘贴作为备用入口。
+- 后端支持 `multipart/form-data` CSV 文件上传，文件内容优先，未选择文件时使用文本框内容。
+- 管理页字体改为 `Segoe UI`，并整理为浅色工具台风格：分区面板、清晰统计卡片、表格横向滚动、按钮和输入框样式统一。
+- M5Stick 中文乱码暂不改动，后续作为固件字体专项处理。
+
+测试结果：
+
+- 先写入失败测试，确认旧页面没有文件选择控件、旧后端不能处理 multipart CSV 文件上传。
+- 页面渲染测试通过 3 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_admin_views -v`
+- Web 路由测试通过 21 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_web -v`
+
+下一步：
+
+- 在浏览器刷新 `/admin`，用文件选择框导入真实 CSV。
+- 继续观察 M5Stick 同步和评分上传链路。

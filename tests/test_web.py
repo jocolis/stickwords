@@ -18,7 +18,10 @@ def call_app(
     query_string="",
     http_host="localhost:8000",
 ):
-    body_bytes = body.encode("utf-8")
+    if isinstance(body, bytes):
+        body_bytes = body
+    else:
+        body_bytes = body.encode("utf-8")
     captured = {}
 
     def start_response(status, headers):
@@ -39,6 +42,37 @@ def call_app(
     }
     response_body = b"".join(app(environ, start_response)).decode("utf-8")
     return captured["status"], captured["headers"], response_body
+
+
+def multipart_body(fields=None, files=None, boundary="----stickwords-test"):
+    fields = fields or {}
+    files = files or {}
+    chunks = []
+    for name, value in fields.items():
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                str(value).encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    for name, file_info in files.items():
+        filename, content, content_type = file_info
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                (
+                    f'Content-Disposition: form-data; name="{name}"; '
+                    f'filename="{filename}"\r\n'
+                ).encode("utf-8"),
+                f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+                content.encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
 class WebTests(unittest.TestCase):
@@ -390,6 +424,45 @@ class WebTests(unittest.TestCase):
             )
             self.assertEqual(body, "")
 
+    def test_post_import_csv_file_redirects_and_persists(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            app = create_app(service)
+            body, content_type = multipart_body(
+                fields={"csv_text": ""},
+                files={
+                    "csv_file": (
+                        "words.csv",
+                        (
+                            "word,meaning,example\n"
+                            "abandon,fangqi,Do not abandon your plan.\n"
+                            "benefit,haochu,A clear benefit.\n"
+                        ),
+                        "text/csv",
+                    )
+                },
+            )
+
+            status, headers, response_body = call_app(
+                app,
+                "POST",
+                "/admin/import",
+                body,
+                content_type=content_type,
+            )
+
+            self.assertEqual(status, "303 See Other")
+            self.assertEqual(
+                headers["Location"],
+                "/admin?message=Imported+created%3D2+updated%3D0+failed%3D0",
+            )
+            self.assertEqual(
+                [word.word for word in service.load_words()],
+                ["abandon", "benefit"],
+            )
+            self.assertEqual(response_body, "")
+
     def test_post_blank_import_returns_400_without_creating_words(self):
         with workspace_temp_dir() as temp_dir:
             service = StickWordsService(temp_dir)
@@ -400,7 +473,7 @@ class WebTests(unittest.TestCase):
 
             self.assertEqual(status, "400 Bad Request")
             self.assertEqual(headers["Content-Type"], "text/plain; charset=utf-8")
-            self.assertEqual(body, "csv_text is required")
+            self.assertEqual(body, "csv_text or csv_file is required")
             self.assertEqual(service.load_words(), [])
 
     def test_unknown_route_returns_404(self):

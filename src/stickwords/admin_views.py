@@ -12,7 +12,9 @@ def render_admin_page(
     message: str = "",
     server_url: str = "http://localhost:8000",
 ) -> str:
-    stats_html = "\n".join(_render_stat(label, status.get(key, 0)) for label, key in _stat_items(status))
+    stats_html = "\n".join(
+        _render_stat(label, status.get(key, 0)) for label, key in _stat_items(status)
+    )
     message_html = ""
     if message:
         message_html = f'<p class="message">{_html(message)}</p>'
@@ -28,26 +30,161 @@ def render_admin_page(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>StickWords Admin</title>
   <style>
-    body {{ font-family: Arial, sans-serif; margin: 2rem; line-height: 1.4; }}
-    header {{ margin-bottom: 1.5rem; }}
-    section {{ margin: 1.5rem 0; }}
-    table {{ border-collapse: collapse; width: 100%; }}
-    th, td {{ border: 1px solid #ddd; padding: 0.5rem; text-align: left; vertical-align: top; }}
-    th {{ background: #f5f5f5; }}
-    input, textarea {{ display: block; margin: 0.25rem 0 0.5rem; max-width: 32rem; width: 100%; }}
-    textarea {{ min-height: 4rem; }}
-    button {{ margin-top: 0.25rem; }}
-    .stats {{ display: flex; flex-wrap: wrap; gap: 0.75rem; padding: 0; list-style: none; }}
-    .stats li {{ border: 1px solid #ddd; padding: 0.75rem; min-width: 8rem; }}
-    .stat-value {{ display: block; font-size: 1.5rem; font-weight: bold; }}
-    .message {{ background: #eef8ee; border: 1px solid #b9dfb9; padding: 0.75rem; }}
-    .server-url {{ font-family: monospace; }}
+    :root {{
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #64748b;
+      --line: #d8dee8;
+      --line-soft: #edf1f5;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --success-bg: #ecfdf3;
+      --success-line: #a7f3c4;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.45;
+    }}
+    main {{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+    }}
+    header {{
+      margin-bottom: 20px;
+    }}
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 2rem;
+      font-weight: 700;
+    }}
+    h2 {{
+      margin: 0 0 16px;
+      font-size: 1.05rem;
+      font-weight: 650;
+    }}
+    section {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin: 16px 0;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }}
+    table {{
+      border-collapse: collapse;
+      width: 100%;
+      background: var(--panel);
+    }}
+    th, td {{
+      border-bottom: 1px solid var(--line-soft);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.82rem;
+      font-weight: 650;
+      text-transform: uppercase;
+    }}
+    input, textarea {{
+      display: block;
+      margin: 6px 0 12px;
+      max-width: 36rem;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      background: #fff;
+    }}
+    input[type="file"] {{
+      padding: 8px;
+      background: #f8fafc;
+    }}
+    textarea {{
+      min-height: 5rem;
+      resize: vertical;
+    }}
+    button {{
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 650;
+      padding: 9px 14px;
+    }}
+    button:hover {{
+      background: var(--accent-dark);
+    }}
+    label {{
+      color: #334155;
+      font-weight: 600;
+    }}
+    .subtitle {{
+      color: var(--muted);
+      margin: 0;
+    }}
+    .stats {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      padding: 0;
+      list-style: none;
+      margin: 0;
+    }}
+    .stats li {{
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }}
+    .stat-value {{
+      display: block;
+      font-size: 1.65rem;
+      font-weight: 750;
+      line-height: 1.1;
+    }}
+    .message {{
+      background: var(--success-bg);
+      border: 1px solid var(--success-line);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }}
+    .server-url {{
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      font-family: Consolas, "Segoe UI Mono", monospace;
+      padding: 3px 6px;
+    }}
+    .form-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px 24px;
+      align-items: start;
+    }}
+    .table-wrap {{
+      overflow-x: auto;
+    }}
   </style>
 </head>
 <body>
+<main>
   <header>
     <h1>StickWords</h1>
-    <p>M5Stick server URL: <span class="server-url">{_html(server_url)}</span></p>
+    <p class="subtitle">M5Stick server URL: <span class="server-url">{_html(server_url)}</span></p>
     {message_html}
   </header>
 
@@ -61,24 +198,30 @@ def render_admin_page(
   <section aria-labelledby="add-word-heading">
     <h2 id="add-word-heading">Add Word</h2>
     <form method="post" action="/admin/add-word">
-      <label>Word <input name="word" required></label>
-      <label>Meaning <input name="meaning" required></label>
-      <label>Example <textarea name="example" required></textarea></label>
+      <div class="form-grid">
+        <label>Word <input name="word" required></label>
+        <label>Meaning <input name="meaning" required></label>
+        <label>Example <textarea name="example" required></textarea></label>
+      </div>
       <button type="submit">Add Word</button>
     </form>
   </section>
 
   <section aria-labelledby="import-csv-heading">
     <h2 id="import-csv-heading">Import CSV</h2>
-    <form method="post" action="/admin/import">
-      <label>CSV Text <textarea name="csv_text" required>word,meaning,example
+    <form method="post" action="/admin/import" enctype="multipart/form-data">
+      <div class="form-grid">
+        <label>Choose CSV File <input type="file" name="csv_file" accept=".csv,text/csv"></label>
+        <label>CSV Text <textarea name="csv_text">word,meaning,example
 </textarea></label>
+      </div>
       <button type="submit">Import CSV</button>
     </form>
   </section>
 
   <section aria-labelledby="words-heading">
     <h2 id="words-heading">Words table</h2>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -95,7 +238,9 @@ def render_admin_page(
 {rows_html}
       </tbody>
     </table>
+    </div>
   </section>
+</main>
 </body>
 </html>"""
 

@@ -71,7 +71,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 69 tests pass.
+Expected result: all 70 tests pass.
 
 Firmware build:
 
@@ -92,7 +92,7 @@ Expected result: PlatformIO build succeeds.
 - PC web admin page:
   - `/admin`
   - add, edit, and suspend words
-  - textarea CSV import
+  - CSV import by file picker or textarea text fallback
   - `/api/status` JSON status endpoint
   - suggested M5Stick LAN server URL when opened from localhost
   - Windows launcher through `start_stickwords.bat`
