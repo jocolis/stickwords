@@ -44,6 +44,8 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("Review saved word=", source)
         self.assertIn("Review overwritten word=", source)
         self.assertIn("M5.Lcd.setRotation(1)", source)
+        self.assertNotIn("M5.Imu.Init", source)
+        self.assertNotIn("getAccelData", source)
 
     def test_platformio_build_output_is_ignored(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
