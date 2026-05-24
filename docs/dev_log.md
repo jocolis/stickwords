@@ -593,3 +593,36 @@
 下一步：
 
 - 日常启动优先双击 `start_stickwords.bat`，避免残留旧后端进程占用端口导致 M5Stick 同步失败。
+
+## 2026-05-24 Stage 4 polish: M5Stick 本地缓存与断电恢复
+
+完成内容：
+
+- 在固件中引入 ESP32 `Preferences`，使用 `stickwords` 命名空间保存本地状态。
+- 成功同步到 due cards 后，将当前任务批次写入 flash；后端返回无到期卡片时清空缓存。
+- Wi-Fi 失败、HTTP 同步失败或任务 JSON 解析失败时，优先尝试加载上一次成功同步的任务缓存，避免直接回到空状态。
+- 每次新增或覆盖 pending review 后，把待上传评分队列写入 flash。
+- 开机时先加载 pending review，联网成功后先尝试上传，再拉取最新任务。
+- 服务端确认 accepted/skipped 数量足够且 failed 为 0 后，清空 pending review 的 flash 缓存。
+- 明确本阶段不实现离线 future due-date 调度；M5Stick 仍依赖下一次 Wi-Fi 同步判断未来哪些卡片到期。
+
+测试结果：
+
+- 先写入失败测试，确认旧固件没有 `Preferences` 缓存、pending review 持久化和启动加载逻辑。
+- 新增缓存测试通过：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage4_firmware_persists_cached_tasks_and_pending_reviews -v`
+- 固件测试通过 18 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- 仓库级 Python 全量测试通过 83 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+遇到的问题与决策：
+
+- M5Stick 当前没有可靠 RTC 参与业务逻辑，所以缓存只能复用“上次已经由 PC 判定为到期”的任务，不能在离线状态下判断明天或未来某个时间点的新 due cards。
+- pending review 写入 flash 后，断电前未上传的评分不会直接丢失；但如果用户在离线缓存里反复复习同一批卡片，仍需要后续设计更清晰的离线复习策略。
+
+下一步：
+
+- 上传固件到真机，做一次人工断电测试：先同步到任务、断开 Wi-Fi 或关闭后端、重启 M5Stick，确认能进入缓存任务；完成一次评分后再恢复后端，确认 pending review 会上传。

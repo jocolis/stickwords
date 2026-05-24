@@ -455,6 +455,34 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("parseJsonStringAt(", source)
         self.assertIn("escaped = true", source)
 
+    def test_stage4_firmware_persists_cached_tasks_and_pending_reviews(self):
+        source = firmware_source()
+        setup_body = firmware_function_body(source, "setup")
+        fetch_body = firmware_function_body(source, "fetchDeviceTasks")
+        queue_body = firmware_function_body(source, "queuePendingReview")
+        mark_body = firmware_function_body(source, "markPendingReviewsUploaded")
+
+        self.assertIn("#include <Preferences.h>", source)
+        self.assertIn("Preferences storage", source)
+        self.assertIn("saveCachedTasks()", source)
+        self.assertIn("loadCachedTasks()", source)
+        self.assertIn("clearCachedTasks()", source)
+        self.assertIn("savePendingReviews()", source)
+        self.assertIn("loadPendingReviews()", source)
+        self.assertIn("clearPendingReviews()", source)
+        self.assertIn('storage.begin("stickwords"', source)
+        self.assertIn('storage.putBytes("cards"', source)
+        self.assertIn('storage.getBytes("cards"', source)
+        self.assertIn('storage.putBytes("pending"', source)
+        self.assertIn('storage.getBytes("pending"', source)
+
+        self.assertIn("loadPendingReviews()", setup_body)
+        self.assertIn("loadCachedTasks()", setup_body)
+        self.assertIn("saveCachedTasks()", fetch_body)
+        self.assertIn("clearCachedTasks()", fetch_body)
+        self.assertIn("savePendingReviews()", queue_body)
+        self.assertIn("clearPendingReviews()", mark_body)
+
     def test_stage4_review_timestamp_uses_generated_at_or_fallback(self):
         source = firmware_source()
         parse_body = firmware_function_body(source, "parseDeviceTasksJson")

@@ -1,5 +1,6 @@
 #include <HTTPClient.h>
 #include <M5StickCPlus.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <cmath>
 #include <cstring>
@@ -78,6 +79,7 @@ struct PendingReview {
 ReviewResult reviewResults[kMaxSyncedCards] = {};
 DeviceCard syncedCards[kMaxSyncedCards] = {};
 PendingReview pendingReviews[kMaxPendingReviews] = {};
+Preferences storage;
 size_t syncedCardCount = 0;
 size_t pendingReviewCount = 0;
 char serverGeneratedAt[kMaxTimestampLength] = "";
@@ -494,6 +496,8 @@ void render() {
   }
 }
 
+void copyBounded(char* dest, size_t destSize, const String& value);
+
 Rating nextRating(Rating rating) {
   switch (rating) {
     case Rating::Forgot:
@@ -507,6 +511,92 @@ Rating nextRating(Rating rating) {
 }
 
 void resetReviewSet();
+
+void saveCachedTasks() {
+  storage.begin("stickwords", false);
+  storage.putUInt("card_count", static_cast<uint32_t>(syncedCardCount));
+  storage.putString("generated", serverGeneratedAt);
+  storage.putBytes("cards", syncedCards, sizeof(DeviceCard) * syncedCardCount);
+  storage.end();
+  Serial.printf("Cached cards=%u\n", static_cast<unsigned>(syncedCardCount));
+}
+
+bool loadCachedTasks() {
+  storage.begin("stickwords", true);
+  uint32_t storedCount = storage.getUInt("card_count", 0);
+  if (storedCount > kMaxSyncedCards) {
+    storedCount = kMaxSyncedCards;
+  }
+
+  const size_t expectedBytes = sizeof(DeviceCard) * storedCount;
+  const size_t readBytes = storedCount == 0
+                               ? 0
+                               : storage.getBytes("cards", syncedCards, expectedBytes);
+  const String generatedAt = storage.getString("generated", "");
+  storage.end();
+
+  if (storedCount == 0 || readBytes != expectedBytes) {
+    return false;
+  }
+
+  syncedCardCount = storedCount;
+  copyBounded(serverGeneratedAt, sizeof(serverGeneratedAt), generatedAt);
+  Serial.printf("Loaded cached cards=%u\n", static_cast<unsigned>(syncedCardCount));
+  resetReviewSet();
+  return true;
+}
+
+void clearCachedTasks() {
+  storage.begin("stickwords", false);
+  storage.remove("card_count");
+  storage.remove("generated");
+  storage.remove("cards");
+  storage.end();
+}
+
+void savePendingReviews() {
+  storage.begin("stickwords", false);
+  storage.putUInt("pending_count", static_cast<uint32_t>(pendingReviewCount));
+  storage.putUInt("review_seq", reviewSequence);
+  storage.putBytes("pending", pendingReviews, sizeof(PendingReview) * pendingReviewCount);
+  storage.end();
+  Serial.printf("Saved pending reviews=%u\n", static_cast<unsigned>(pendingReviewCount));
+}
+
+bool loadPendingReviews() {
+  storage.begin("stickwords", true);
+  uint32_t storedCount = storage.getUInt("pending_count", 0);
+  if (storedCount > kMaxPendingReviews) {
+    storedCount = kMaxPendingReviews;
+  }
+
+  const size_t expectedBytes = sizeof(PendingReview) * storedCount;
+  const size_t readBytes = storedCount == 0
+                               ? 0
+                               : storage.getBytes("pending", pendingReviews, expectedBytes);
+  const uint32_t storedSequence = storage.getUInt("review_seq", 0);
+  storage.end();
+
+  if (storedCount > 0 && readBytes != expectedBytes) {
+    pendingReviewCount = 0;
+    return false;
+  }
+
+  pendingReviewCount = storedCount;
+  if (storedSequence > reviewSequence) {
+    reviewSequence = storedSequence;
+  }
+  Serial.printf("Loaded pending reviews=%u\n", static_cast<unsigned>(pendingReviewCount));
+  return pendingReviewCount > 0;
+}
+
+void clearPendingReviews() {
+  storage.begin("stickwords", false);
+  storage.remove("pending_count");
+  storage.remove("review_seq");
+  storage.remove("pending");
+  storage.end();
+}
 
 void drawStatusMessage(const char* line1, const char* line2 = "") {
   M5.Lcd.fillScreen(BLACK);
@@ -706,6 +796,10 @@ bool fetchDeviceTasks() {
     http.end();
     syncedCardCount = 0;
     serverGeneratedAt[0] = '\0';
+    if (loadCachedTasks()) {
+      Serial.println("Using cached tasks after sync failure");
+      return true;
+    }
     drawStatusMessage("Sync failed", "check server");
     setStatusPage("Sync failed", "check server");
     return false;
@@ -717,6 +811,10 @@ bool fetchDeviceTasks() {
     Serial.println("Sync parse failed");
     syncedCardCount = 0;
     serverGeneratedAt[0] = '\0';
+    if (loadCachedTasks()) {
+      Serial.println("Using cached tasks after parse failure");
+      return true;
+    }
     drawStatusMessage("Sync failed", "check server");
     setStatusPage("Sync failed", "check server");
     return false;
@@ -725,12 +823,14 @@ bool fetchDeviceTasks() {
 
   if (syncedCardCount == 0) {
     Serial.println("No due cards");
+    clearCachedTasks();
     drawStatusMessage("No due cards");
     setStatusPage("No due cards");
     return true;
   }
 
   Serial.printf("Synced cards=%u\n", static_cast<unsigned>(syncedCardCount));
+  saveCachedTasks();
   resetReviewSet();
   return true;
 }
@@ -750,6 +850,7 @@ void queuePendingReview(const char* wordId, Rating rating) {
       existing.rating = rating;
       existing.reviewedAtMs = millis();
       existing.sequence = ++reviewSequence;
+      savePendingReviews();
       return;
     }
   }
@@ -765,6 +866,7 @@ void queuePendingReview(const char* wordId, Rating rating) {
   pending.reviewedAtMs = millis();
   pending.sequence = ++reviewSequence;
   pending.uploaded = false;
+  savePendingReviews();
 }
 
 size_t pendingReviewUploadCount() {
@@ -809,6 +911,7 @@ String buildPendingReviewsJson() {
 
 void markPendingReviewsUploaded() {
   pendingReviewCount = 0;
+  clearPendingReviews();
 }
 
 String compactJsonMarkers(const String& body) {
@@ -1112,8 +1215,12 @@ void setup() {
   Serial.println("StickWords Stage 4 boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
+  loadPendingReviews();
   if (connectWifi()) {
+    uploadPendingReviews();
     fetchDeviceTasks();
+  } else if (loadCachedTasks()) {
+    Serial.println("Using cached tasks after WiFi failure");
   }
   logPage();
   render();
