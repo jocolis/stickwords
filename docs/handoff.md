@@ -3,6 +3,7 @@
 ## Current Status
 
 Stage 4 minimum PC-to-M5Stick sync is implemented and ready for real-device validation.
+Quick Add helper scripts are available for adding example-backed words from the PC.
 
 Completed milestones:
 
@@ -71,7 +72,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 74 tests pass.
+Expected result: all 78 tests pass.
 
 Firmware build:
 
@@ -82,10 +83,34 @@ pio run
 
 Expected result: PlatformIO build succeeds.
 
+## How To Use Quick Add
+
+Quick Add is a small PC-side helper for adding a word from a selected sentence.
+It writes to the same `data\vocab.csv` through `StickWordsService`, so duplicate words update the existing row while preserving review progress.
+
+Optional AI definition generation uses DeepSeek:
+
+```powershell
+$env:DEEPSEEK_API_KEY='your-api-key'
+```
+
+Manual meaning entry still works without an API key.
+
+Run directly:
+
+```powershell
+cd C:\Users\ASUS\Documents\M5Stick
+python scripts\quick_add.py --example "This change has a clear benefit."
+```
+
+On Windows, you can also run `scripts\setup_quick_add_hotkey.ps1` once to create a desktop shortcut with `Ctrl+Alt+W`.
+The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ctrl+Alt+W`, double-click or type the target word, generate or enter the meaning, then add it to StickWords.
+
 ## What Works
 
 - CSV vocab loading and saving.
 - CSV import with duplicate-word update rules and duplicate-row reporting.
+- Quick Add helper for clipboard/example-backed word entry, with optional DeepSeek definition generation.
 - Lightweight SM-2 review updates.
 - Today-task generation.
 - Idempotent review-event processing.
@@ -131,7 +156,8 @@ Expected result: PlatformIO build succeeds.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - No USB configuration UI yet.
 - No multi-deck support yet.
-- No multipart file upload yet.
+- Quick Add requires PC-side Python/Tkinter and does not run on the M5Stick itself.
+- DeepSeek generation requires `DEEPSEEK_API_KEY`; without it, the helper is manual-entry only.
 - Tests use `.test-tmp/` inside the repository because this Windows sandbox can reject Python writes to `TemporaryDirectory()` paths.
 
 ## Next Stage

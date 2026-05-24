@@ -26,6 +26,50 @@ class StickWordsServiceTests(unittest.TestCase):
             self.assertEqual(status["due_today"], 1)
             self.assertEqual(service.load_words()[0].meaning, "放弃")
 
+    def test_add_or_update_word_preserves_progress_for_duplicate_word(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        later = datetime(2026, 5, 24, 10, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            original = service.add_word("Abandon", "old", "Old example.")
+            words = service.load_words()
+            words[0].review_count = 4
+            words[0].status = STATUS_LEARNING
+            service.save_words(words)
+
+            service.clock = lambda: later
+            action, updated = service.add_or_update_word(
+                "abandon",
+                "give up",
+                "Do not abandon your plan.",
+            )
+
+            loaded = service.load_words()
+            self.assertEqual(action, "updated")
+            self.assertEqual(updated.id, original.id)
+            self.assertEqual(len(loaded), 1)
+            self.assertEqual(loaded[0].word, "abandon")
+            self.assertEqual(loaded[0].meaning, "give up")
+            self.assertEqual(loaded[0].example, "Do not abandon your plan.")
+            self.assertEqual(loaded[0].review_count, 4)
+            self.assertEqual(loaded[0].status, STATUS_LEARNING)
+            self.assertEqual(loaded[0].updated_at, later)
+
+    def test_add_or_update_word_creates_new_word(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+
+            action, word = service.add_or_update_word(
+                "benefit",
+                "advantage",
+                "This change has a clear benefit.",
+            )
+
+            self.assertEqual(action, "created")
+            self.assertEqual(word.id, "w-000001")
+            self.assertEqual(service.load_words()[0].word, "benefit")
+
     def test_edit_and_suspend_word(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
         with workspace_temp_dir() as temp_dir:

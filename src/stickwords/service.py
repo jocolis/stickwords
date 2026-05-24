@@ -69,6 +69,35 @@ class StickWordsService:
         self.save_words(words)
         return new_word
 
+    def add_or_update_word(
+        self,
+        word: str,
+        meaning: str,
+        example: str,
+    ) -> tuple[str, Word]:
+        words = self.load_words()
+        now = self.now()
+        key = word.strip().casefold()
+        for existing in words:
+            if existing.word.casefold() == key:
+                existing.word = word.strip()
+                existing.meaning = meaning.strip()
+                existing.example = example.strip()
+                existing.updated_at = now
+                self.save_words(words)
+                return "updated", existing
+
+        new_word = Word.new_word(
+            word_id=self.next_word_id(words),
+            word=word,
+            meaning=meaning,
+            example=example,
+            now=now,
+        )
+        words.append(new_word)
+        self.save_words(words)
+        return "created", new_word
+
     def edit_word(self, word_id: str, *, meaning: str, example: str) -> Word:
         words = self.load_words()
         now = self.now()

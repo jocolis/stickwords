@@ -449,3 +449,35 @@
 下一步：
 
 - 真实使用中观察搜索框是否足够；如果词库很大，再考虑服务端分页或后端搜索。
+
+## 2026-05-24 Stage 4 polish: Quick Add 快速加词工具
+
+完成内容：
+
+- 检查 `C:\Users\ASUS\Documents\quick-add-test` 原型，确认其目标是从 Obsidian/Chrome 复制例句后快速添加单词。
+- 将原型思路整合进主项目的 `scripts\quick_add.py`，而不是直接复制其独立 CSV 写入逻辑。
+- 新增 `StickWordsService.add_or_update_word()`，让快速加词和网页/同步共用同一套词库规则。
+- 重复单词按大小写不敏感匹配并更新释义、例句和更新时间，同时保留已有复习进度。
+- Quick Add 支持从剪贴板或 `--example` 读取例句，支持双击例句中的词，也支持手动输入目标词。
+- 如果设置了 `DEEPSEEK_API_KEY`，可调用 DeepSeek 生成 Collins COBUILD 风格英文释义；未设置时仍可手动填写释义。
+- 新增 `scripts\quick_add.bat` 作为 Windows 启动入口。
+- 新增 `scripts\setup_quick_add_hotkey.ps1`，用于创建桌面快捷方式并绑定 `Ctrl+Alt+W`。
+
+测试结果：
+
+- 先写入失败测试，确认主服务层没有 `add_or_update_word()` 且 quick add 脚本不存在。
+- Quick Add 测试通过 2 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_quick_add -v`
+- Service 测试通过 9 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_service -v`
+
+遇到的问题与决策：
+
+- 原型自带 CSV/ID 逻辑可以工作，但如果直接复制，会和主项目的导入、重复词、复习进度规则形成两套真相。
+- 因此本次只迁移交互和 DeepSeek 调用思路，持久化统一走 `StickWordsService`。
+- 测试不调用真实 DeepSeek API，避免依赖网络和 API key。
+
+下一步：
+
+- 真实运行 `scripts\setup_quick_add_hotkey.ps1` 创建快捷方式。
+- 从 Obsidian 或 Chrome 复制一句英文例句后，用 `Ctrl+Alt+W` 验证日常加词手感。
