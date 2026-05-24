@@ -47,6 +47,20 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertNotIn("M5.Imu.Init", source)
         self.assertNotIn("getAccelData", source)
 
+    def test_stage3b_screen_removes_old_headers_and_button_hints(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+
+        self.assertNotIn('M5.Lcd.println("StickWords")', source)
+        self.assertNotIn("A: next", source)
+        self.assertNotIn("A: full example", source)
+        self.assertNotIn("A: rating", source)
+        self.assertNotIn("A: change", source)
+        self.assertNotIn("A: restart", source)
+        self.assertNotIn("B: back", source)
+        self.assertNotIn("B: re-rate", source)
+        self.assertNotIn("Hold A: save", source)
+        self.assertIn("StickWords Stage 3B boot", source)
+
     def test_platformio_build_output_is_ignored(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 

@@ -88,49 +88,38 @@ void setPage(Page page) {
   logPage();
 }
 
-void drawHeader(const Card& card) {
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.println("StickWords");
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.printf("%u/%u  %s\n\n", static_cast<unsigned>(currentCardIndex + 1),
-                static_cast<unsigned>(kCardCount), card.word);
+void drawCenteredText(const char* text, int16_t y, uint8_t textSize) {
+  M5.Lcd.setTextSize(textSize);
+  const int16_t textWidth = M5.Lcd.textWidth(text);
+  const int16_t x = (240 - textWidth) / 2;
+  M5.Lcd.setCursor(x < 0 ? 0 : x, y);
+  M5.Lcd.println(text);
 }
 
 void drawWordPage() {
-  const Card& card = kCards[currentCardIndex];
-  drawHeader(card);
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.println(card.word);
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.println();
-  M5.Lcd.println("A: next");
-  M5.Lcd.println("B: re-rate prev");
+  drawCenteredText(kCards[currentCardIndex].word, 52, 3);
 }
 
 void drawMeaningSummaryPage() {
   const Card& card = kCards[currentCardIndex];
-  drawHeader(card);
-  M5.Lcd.printf("meaning: %s\n\n", card.meaning);
-  M5.Lcd.print("example: ");
-  for (uint8_t i = 0; card.example[i] != '\0' && i < 18; ++i) {
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.println(card.word);
+  M5.Lcd.println();
+  M5.Lcd.printf("meaning: %s\n", card.meaning);
+  M5.Lcd.println();
+  M5.Lcd.print("ex: ");
+  for (uint8_t i = 0; card.example[i] != '\0' && i < 28; ++i) {
     M5.Lcd.print(card.example[i]);
   }
-  if (std::strlen(card.example) > 18) {
+  if (std::strlen(card.example) > 28) {
     M5.Lcd.print("...");
   }
   M5.Lcd.println();
-  M5.Lcd.println();
-  M5.Lcd.println("A: full example");
-  M5.Lcd.println("B: back");
 }
 
 void drawFullExamplePage() {
-  const Card& card = kCards[currentCardIndex];
-  drawHeader(card);
-  M5.Lcd.println(card.example);
-  M5.Lcd.println();
-  M5.Lcd.println("A: rating");
-  M5.Lcd.println("B: back");
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.println(kCards[currentCardIndex].example);
 }
 
 void drawRatingOption(Rating rating) {
@@ -139,25 +128,17 @@ void drawRatingOption(Rating rating) {
 
 void drawRatingPage() {
   const Card& card = kCards[currentCardIndex];
-  drawHeader(card);
-  M5.Lcd.println("Rating");
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.println(card.word);
+  M5.Lcd.println();
   drawRatingOption(Rating::Forgot);
   drawRatingOption(Rating::Hard);
   drawRatingOption(Rating::Good);
-  M5.Lcd.println();
-  M5.Lcd.println("A: change");
-  M5.Lcd.println("Hold A: save");
-  M5.Lcd.println("B: back");
 }
 
 void drawDonePage() {
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.println("Review complete");
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.printf("%u/%u cards rated\n\n", static_cast<unsigned>(kCardCount),
-                static_cast<unsigned>(kCardCount));
-  M5.Lcd.println("A: restart");
-  M5.Lcd.println("B: re-rate last");
+  drawCenteredText("Review complete", 38, 2);
+  drawCenteredText("3/3 rated", 76, 2);
 }
 
 void render() {

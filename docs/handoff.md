@@ -4,7 +4,7 @@
 
 Stage 2 PC web management page is implemented and tested.
 Stage 3A M5Stick hardware check firmware is implemented and validated on the real device.
-Stage 3B review UI prototype is implemented and ready for real-device validation.
+Stage 3B review UI prototype is implemented, with the compact UI polish applied, and ready for real-device validation.
 
 ## How To Run
 
@@ -38,7 +38,7 @@ Note: PlatformIO auto-detected COM1 on this PC, but the M5Stick appeared as COM5
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 51 tests pass.
+Expected result: all 52 tests pass.
 
 ## What Works
 
@@ -66,6 +66,8 @@ Expected result: all 51 tests pass.
 - Stage 3B review UI prototype:
   - three built-in fake cards
   - word, summary, full example, rating, and done pages
+  - compact review layout without the old title, page counter, or button-hint footer
+  - larger word, meaning, example, rating, and done-page text
   - Button A short press advances pages or cycles rating
   - Button A long press submits rating
   - Button B returns to previous page or re-rates previous card

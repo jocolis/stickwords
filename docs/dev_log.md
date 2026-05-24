@@ -189,3 +189,25 @@
 
 - 在真实 M5Stick C Plus 上验证 Stage 3B 交互。
 - 通过后进入 Stage 3C。
+
+## 2026-05-24 阶段 3B：M5Stick UI 空间优化
+
+完成内容：
+
+- 移除 M5Stick 复习界面顶部的 `StickWords` 标题、页码/单词头部信息和底部按键提示。
+- 单词页改为只显示居中的大号单词。
+- 释义+例句摘要页、完整例句页和评分页使用更大的正文显示，减少下方空白。
+- 评分页保留当前单词，方便确认正在评分的卡片。
+- 保持 Button A / Button B 的复习交互不变。
+
+测试结果：
+
+- 仓库级 Python 全量测试通过 52 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 固件编译通过：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+
+下一步：
+
+- 上传到真实 M5Stick C Plus，确认小屏幕 UI 观感和字号是否舒适。
