@@ -8,13 +8,19 @@ from uuid import uuid4
 
 from .importer import ImportResult, import_words
 from .models import (
+    RATING_FORGOT,
+    RATING_GOOD,
+    RATING_HARD,
     STATUS_LEARNING,
     STATUS_NEW,
     STATUS_REVIEW,
     STATUS_SUSPENDED,
     Word,
+    format_dt,
     normalize_dt,
+    parse_dt,
 )
+from .reviews import ReviewEvent, ReviewEventStore, process_review_events
 from .scheduler import get_today_tasks as schedule_today_tasks
 from .storage import VocabStore
 
@@ -106,6 +112,78 @@ class StickWordsService:
             max_due=max_due,
             max_new=max_new,
         )
+
+    def device_tasks_payload(self, limit: int = 20) -> dict:
+        limit = max(0, min(limit, 50))
+        tasks = self.get_today_tasks(max_due=limit, max_new=limit)
+        return {
+            "generated_at": format_dt(self.now()),
+            "tasks": [
+                {
+                    "id": word.id,
+                    "word": word.word,
+                    "meaning": word.meaning,
+                    "example": word.example,
+                }
+                for word in tasks[:limit]
+            ],
+        }
+
+    def process_device_reviews(self, payload: dict) -> dict:
+        raw_reviews = payload.get("reviews")
+        if not isinstance(raw_reviews, list):
+            raise ValueError("reviews must be a list")
+
+        events: list[ReviewEvent] = []
+        failed = 0
+        errors: list[str] = []
+        valid_ratings = {RATING_FORGOT, RATING_HARD, RATING_GOOD}
+
+        for index, raw in enumerate(raw_reviews):
+            if not isinstance(raw, dict):
+                failed += 1
+                errors.append(f"reviews[{index}] must be an object")
+                continue
+
+            try:
+                word_id = str(raw.get("word_id", "")).strip()
+                rating = str(raw.get("rating", "")).strip()
+                event_id = str(raw.get("event_id", "")).strip()
+                reviewed_at = parse_dt(str(raw.get("reviewed_at", "")).strip())
+                if word_id == "":
+                    raise ValueError("word_id is required")
+                if event_id == "":
+                    raise ValueError("event_id is required")
+                if rating not in valid_ratings:
+                    raise ValueError(f"invalid rating: {rating}")
+                if reviewed_at is None:
+                    raise ValueError("reviewed_at is required")
+
+                events.append(
+                    ReviewEvent(
+                        review_event_id=event_id,
+                        word_id=word_id,
+                        rating=rating,
+                        reviewed_at=reviewed_at,
+                    )
+                )
+            except ValueError as exc:
+                failed += 1
+                errors.append(f"reviews[{index}]: {exc}")
+
+        result = process_review_events(
+            words=self.load_words(),
+            events=events,
+            event_store=ReviewEventStore(self.data_dir / "review_events.csv"),
+        )
+        self.save_words(result.words)
+
+        return {
+            "accepted": result.applied,
+            "skipped_duplicate": result.skipped_duplicate,
+            "failed": failed + result.failed,
+            "errors": errors + result.errors,
+        }
 
     def get_status(self) -> dict[str, int]:
         words = self.load_words()

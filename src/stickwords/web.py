@@ -16,6 +16,19 @@ def _read_form(environ: dict) -> dict[str, str]:
     return {key: values[0] for key, values in parsed.items()}
 
 
+def _read_json(environ: dict) -> dict:
+    length = int(environ.get("CONTENT_LENGTH") or 0)
+    body = environ["wsgi.input"].read(length).decode("utf-8")
+    if body.strip() == "":
+        raise ValueError("JSON body is required")
+
+    parsed = json.loads(body)
+    if not isinstance(parsed, dict):
+        raise ValueError("JSON body must be an object")
+
+    return parsed
+
+
 def _response(
     start_response,
     status: str,
@@ -70,6 +83,36 @@ def create_app(service: StickWordsService):
                     "application/json; charset=utf-8",
                 )
 
+            if method == "GET" and path == "/api/device/tasks":
+                raw_limit = (query.get("limit") or ["20"])[0]
+                try:
+                    limit = int(raw_limit)
+                except ValueError as exc:
+                    raise ValueError("limit must be an integer") from exc
+
+                body = json.dumps(
+                    service.device_tasks_payload(limit),
+                    ensure_ascii=False,
+                )
+                return _response(
+                    start_response,
+                    "200 OK",
+                    body,
+                    "application/json; charset=utf-8",
+                )
+
+            if method == "POST" and path == "/api/device/reviews":
+                body = json.dumps(
+                    service.process_device_reviews(_read_json(environ)),
+                    ensure_ascii=False,
+                )
+                return _response(
+                    start_response,
+                    "200 OK",
+                    body,
+                    "application/json; charset=utf-8",
+                )
+
             if method == "POST" and path in ("/admin/words", "/admin/add-word"):
                 form = _read_form(environ)
                 word_text = _required(form, "word")
@@ -117,7 +160,7 @@ def create_app(service: StickWordsService):
                     f"/admin?message={quote_plus(message)}",
                 )
 
-        except (KeyError, ValueError) as exc:
+        except (KeyError, ValueError, json.JSONDecodeError) as exc:
             return _response(start_response, "400 Bad Request", str(exc))
 
         return _response(start_response, "404 Not Found", "Not Found")

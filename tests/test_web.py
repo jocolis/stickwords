@@ -15,6 +15,7 @@ def call_app(
     path="/admin",
     body="",
     content_type="application/x-www-form-urlencoded",
+    query_string="",
 ):
     body_bytes = body.encode("utf-8")
     captured = {}
@@ -26,7 +27,7 @@ def call_app(
     environ = {
         "REQUEST_METHOD": method,
         "PATH_INFO": path,
-        "QUERY_STRING": "",
+        "QUERY_STRING": query_string,
         "CONTENT_LENGTH": str(len(body_bytes)),
         "CONTENT_TYPE": content_type,
         "wsgi.input": io.BytesIO(body_bytes),
@@ -186,6 +187,131 @@ class WebTests(unittest.TestCase):
             self.assertEqual(status, "200 OK")
             self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
             self.assertEqual(json.loads(body)["total_words"], 1)
+
+    def test_get_device_tasks_returns_due_cards_json(self):
+        now = datetime(2026, 5, 24, 12, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            word = service.add_word("abandon", "give up", "Do not abandon your plan.")
+            app = create_app(service)
+
+            status, headers, body = call_app(app, "GET", "/api/device/tasks")
+
+            payload = json.loads(body)
+            self.assertEqual(status, "200 OK")
+            self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+            self.assertEqual(payload["generated_at"], "2026-05-24T12:00:00Z")
+            self.assertEqual(
+                payload["tasks"],
+                [
+                    {
+                        "id": word.id,
+                        "word": "abandon",
+                        "meaning": "give up",
+                        "example": "Do not abandon your plan.",
+                    }
+                ],
+            )
+
+    def test_get_device_tasks_respects_limit(self):
+        now = datetime(2026, 5, 24, 12, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            service.add_word("abandon", "give up", "Do not abandon your plan.")
+            service.add_word("benefit", "good effect", "Daily review has a benefit.")
+            app = create_app(service)
+
+            status, headers, body = call_app(
+                app,
+                "GET",
+                "/api/device/tasks",
+                query_string="limit=1",
+            )
+
+            payload = json.loads(body)
+            self.assertEqual(status, "200 OK")
+            self.assertEqual(len(payload["tasks"]), 1)
+
+    def test_post_device_reviews_applies_rating_and_is_idempotent(self):
+        now = datetime(2026, 5, 24, 12, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            word = service.add_word("abandon", "give up", "Do not abandon your plan.")
+            app = create_app(service)
+            body = json.dumps(
+                {
+                    "device_id": "m5stick-c-plus",
+                    "reviews": [
+                        {
+                            "word_id": word.id,
+                            "rating": "good",
+                            "reviewed_at": "2026-05-24T12:03:00Z",
+                            "event_id": "m5stick-c-plus-20260524T120300-w-000001",
+                        }
+                    ],
+                }
+            )
+
+            first_status, _, first_body = call_app(
+                app,
+                "POST",
+                "/api/device/reviews",
+                body,
+                content_type="application/json",
+            )
+            second_status, _, second_body = call_app(
+                app,
+                "POST",
+                "/api/device/reviews",
+                body,
+                content_type="application/json",
+            )
+
+            self.assertEqual(first_status, "200 OK")
+            self.assertEqual(json.loads(first_body)["accepted"], 1)
+            self.assertEqual(second_status, "200 OK")
+            self.assertEqual(json.loads(second_body)["skipped_duplicate"], 1)
+            reviewed = service.load_words()[0]
+            self.assertEqual(reviewed.review_count, 1)
+            self.assertEqual(reviewed.status, "review")
+
+    def test_post_device_reviews_reports_invalid_rows(self):
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir)
+            app = create_app(service)
+            body = json.dumps(
+                {
+                    "device_id": "m5stick-c-plus",
+                    "reviews": [
+                        {
+                            "word_id": "missing",
+                            "rating": "good",
+                            "reviewed_at": "2026-05-24T12:03:00Z",
+                            "event_id": "missing-event",
+                        },
+                        {
+                            "word_id": "",
+                            "rating": "great",
+                            "reviewed_at": "bad-date",
+                            "event_id": "",
+                        },
+                    ],
+                }
+            )
+
+            status, _, response_body = call_app(
+                app,
+                "POST",
+                "/api/device/reviews",
+                body,
+                content_type="application/json",
+            )
+
+            payload = json.loads(response_body)
+            self.assertEqual(status, "200 OK")
+            self.assertEqual(payload["accepted"], 0)
+            self.assertEqual(payload["failed"], 2)
+            self.assertTrue(payload["errors"])
 
     def test_post_import_csv_text_redirects_and_persists(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
