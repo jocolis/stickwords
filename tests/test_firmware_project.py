@@ -20,7 +20,7 @@ class FirmwareProjectTests(unittest.TestCase):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
 
         self.assertIn("#include <M5StickCPlus.h>", source)
-        self.assertIn("StickWords Stage 3B boot", source)
+        self.assertIn("StickWords Stage 3C boot", source)
         self.assertIn("enum class Page", source)
         self.assertIn("Word", source)
         self.assertIn("Meaning", source)
@@ -43,9 +43,9 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("tryReRatePrevious", source)
         self.assertIn("Review saved word=", source)
         self.assertIn("Review overwritten word=", source)
-        self.assertIn("M5.Lcd.setRotation(1)", source)
-        self.assertNotIn("M5.Imu.Init", source)
-        self.assertNotIn("getAccelData", source)
+        self.assertIn("M5.Lcd.setRotation(currentRotation)", source)
+        self.assertIn("M5.Imu.Init()", source)
+        self.assertIn("M5.IMU.getAccelData", source)
 
     def test_stage3b_screen_removes_old_headers_and_button_hints(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
@@ -59,7 +59,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertNotIn("B: back", source)
         self.assertNotIn("B: re-rate", source)
         self.assertNotIn("Hold A: save", source)
-        self.assertIn("StickWords Stage 3B boot", source)
+        self.assertIn("StickWords Stage 3C boot", source)
 
     def test_stage3b_uses_single_flow_content_paging(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
@@ -75,6 +75,20 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertNotIn("FullExample", source)
         self.assertNotIn("M5.Lcd.println(card.word);", source)
         self.assertNotIn('M5.Lcd.print("ex: ");', source)
+
+    def test_stage3c_uses_stable_imu_landscape_auto_rotation(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+
+        self.assertIn("constexpr float kOrientationThreshold", source)
+        self.assertIn("constexpr uint32_t kOrientationStableMs", source)
+        self.assertIn("uint8_t currentRotation = 1", source)
+        self.assertIn("uint8_t pendingRotation = 1", source)
+        self.assertIn("void readImu()", source)
+        self.assertIn("uint8_t detectLandscapeRotation()", source)
+        self.assertIn("void updateAutoRotation(uint32_t now)", source)
+        self.assertIn("M5.Lcd.setRotation(currentRotation)", source)
+        self.assertIn('Serial.printf("Orientation rotation=%u', source)
+        self.assertIn("needsRender = true", source)
 
     def test_platformio_build_output_is_ignored(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")

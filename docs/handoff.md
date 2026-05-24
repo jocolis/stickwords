@@ -4,7 +4,8 @@
 
 Stage 2 PC web management page is implemented and tested.
 Stage 3A M5Stick hardware check firmware is implemented and validated on the real device.
-Stage 3B review UI prototype is implemented, with the compact UI polish applied, and ready for real-device validation.
+Stage 3B review UI prototype is implemented.
+Stage 3C-1 left/right landscape auto-rotation is implemented and ready for real-device validation.
 
 ## How To Run
 
@@ -27,8 +28,8 @@ pio run --target upload --upload-port COM5
 pio device monitor --port COM5
 ```
 
-Current Stage 3B expected boot log: `StickWords Stage 3B boot`.
-Manually validate the review flow before moving to the next stage.
+Current Stage 3C expected boot log: `StickWords Stage 3C boot`.
+Manually validate the review flow and left/right auto-rotation before moving to the next stage.
 
 Note: PlatformIO auto-detected COM1 on this PC, but the M5Stick appeared as COM5. Use COM5 explicitly unless the device list changes.
 
@@ -38,7 +39,7 @@ Note: PlatformIO auto-detected COM1 on this PC, but the M5Stick appeared as COM5
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 53 tests pass.
+Expected result: all 54 tests pass.
 
 ## What Works
 
@@ -73,6 +74,11 @@ Expected result: all 53 tests pass.
   - Button A long press submits rating
   - Button B returns to previous page or re-rates previous card
   - in-memory rating overwrite logs
+- Stage 3C-1 left/right landscape auto-rotation:
+  - reuses M5Stick IMU accelerometer readings
+  - switches between landscape rotations 1 and 3 after a stable 500 ms orientation signal
+  - redraws the current review page without changing review progress
+  - logs orientation changes to serial
 
 ## Known Limits
 
@@ -80,6 +86,7 @@ Expected result: all 53 tests pass.
 - Stage 3B ratings are stored only in RAM and disappear after reboot.
 - Firmware does not implement tilt scoring yet.
 - Firmware does not implement double-shake `good` yet.
+- Auto-rotation currently depends on hand-held tilt. If the device is perfectly flat and only yaw-rotated 180 degrees, the accelerometer cannot distinguish left/right orientation.
 - Firmware does not implement Wi-Fi sync yet.
 - No sync API yet.
 - No USB configuration yet.
@@ -89,4 +96,4 @@ Expected result: all 53 tests pass.
 
 ## Next Stage
 
-Validate Stage 3B on the real M5Stick C Plus. After it passes, build Stage 3C: add tilt rating, double-shake `good`, and left/right hand auto-rotation one at a time.
+Validate Stage 3C-1 on the real M5Stick C Plus. If rotation direction is reversed in the hand test, swap the rotation mapping in `detectLandscapeRotation()`. After it passes, continue with tilt rating or double-shake `good` as a separate step.

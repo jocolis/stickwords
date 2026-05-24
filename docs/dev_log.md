@@ -233,3 +233,31 @@
 下一步：
 
 - 上传到真实 M5Stick C Plus，确认释义页和例句分页的阅读节奏是否合适。
+
+## 2026-05-24 阶段 3C-1：左右手横屏自动旋转
+
+完成内容：
+
+- 启用 M5Stick C Plus 的 IMU，加回加速度读取。
+- 固件启动日志升级为 `StickWords Stage 3C boot`。
+- 根据 X 轴加速度稳定方向在横屏 `rotation 1` 和 `rotation 3` 之间切换。
+- 加入 500 ms 稳定时间，降低手持轻微晃动导致的方向抖动。
+- 方向变化时只重绘当前页面，不改变当前复习进度、分页位置或评分状态。
+- 串口打印 `Orientation rotation=... ax=... ay=... az=...`，方便真机调试方向映射。
+
+测试结果：
+
+- 仓库级 Python 全量测试通过 54 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 固件编译通过：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+
+遇到的问题：
+
+- 如果设备完全平放，只在桌面平面内旋转 180 度，加速度计无法区分左右手方向；本阶段按真实手持时的稳定倾角判断。
+- 方向映射可能需要真机确认。如果左手/右手切换后方向反了，只需要对调 `detectLandscapeRotation()` 中 `1` 和 `3` 的返回值。
+
+下一步：
+
+- 上传到真实 M5Stick C Plus，检查左手/右手持握时是否自动转正。

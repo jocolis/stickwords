@@ -37,12 +37,20 @@ constexpr Card kCards[] = {
 
 constexpr size_t kCardCount = sizeof(kCards) / sizeof(kCards[0]);
 constexpr uint32_t kButtonLongPressMs = 650;
+constexpr uint32_t kOrientationStableMs = 500;
 constexpr size_t kContentPageChars = 58;
+constexpr float kOrientationThreshold = 0.45F;
 
 ReviewResult reviewResults[kCardCount] = {};
 Page currentPage = Page::Word;
 size_t currentCardIndex = 0;
 uint8_t contentPageIndex = 0;
+uint8_t currentRotation = 1;
+uint8_t pendingRotation = 1;
+uint32_t pendingRotationSince = 0;
+float accelX = 0.0F;
+float accelY = 0.0F;
+float accelZ = 0.0F;
 Rating selectedRating = Rating::Forgot;
 int lastSubmittedIndex = -1;
 int returnAfterReRatingIndex = -1;
@@ -105,6 +113,46 @@ bool hasMoreContentPage(const char* text) {
 void setContentPage(Page page, uint8_t pageIndex) {
   contentPageIndex = pageIndex;
   setPage(page);
+}
+
+void readImu() {
+  M5.IMU.getAccelData(&accelX, &accelY, &accelZ);
+}
+
+uint8_t detectLandscapeRotation() {
+  if (accelX > kOrientationThreshold) {
+    return 1;
+  }
+  if (accelX < -kOrientationThreshold) {
+    return 3;
+  }
+  return currentRotation;
+}
+
+void updateAutoRotation(uint32_t now) {
+  const uint8_t detectedRotation = detectLandscapeRotation();
+
+  if (detectedRotation == currentRotation) {
+    pendingRotation = currentRotation;
+    pendingRotationSince = now;
+    return;
+  }
+
+  if (detectedRotation != pendingRotation) {
+    pendingRotation = detectedRotation;
+    pendingRotationSince = now;
+    return;
+  }
+
+  if (now - pendingRotationSince < kOrientationStableMs) {
+    return;
+  }
+
+  currentRotation = detectedRotation;
+  M5.Lcd.setRotation(currentRotation);
+  needsRender = true;
+  Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
+                static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
 }
 
 void drawCenteredText(const char* text, int16_t y, uint8_t textSize) {
@@ -353,20 +401,29 @@ void handleButtonBShortPress() {
 
 void setup() {
   M5.begin();
+  M5.Imu.Init();
   Serial.begin(115200);
   delay(200);
 
-  M5.Lcd.setRotation(1);
+  readImu();
+  currentRotation = detectLandscapeRotation();
+  pendingRotation = currentRotation;
+  pendingRotationSince = millis();
+  M5.Lcd.setRotation(currentRotation);
   M5.Lcd.setTextFont(1);
   M5.Lcd.setTextDatum(TL_DATUM);
 
-  Serial.println("StickWords Stage 3B boot");
+  Serial.println("StickWords Stage 3C boot");
+  Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
+                static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
   logPage();
   render();
 }
 
 void loop() {
   M5.update();
+  readImu();
+  updateAutoRotation(millis());
 
   if (M5.BtnA.wasReleasefor(kButtonLongPressMs)) {
     handleButtonALongPress();
