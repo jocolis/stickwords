@@ -1,6 +1,9 @@
+#include <HTTPClient.h>
 #include <M5StickCPlus.h>
+#include <WiFi.h>
 #include <cmath>
 #include <cstring>
+#include "secrets.h"
 
 namespace {
 
@@ -37,6 +40,12 @@ constexpr Card kCards[] = {
 };
 
 constexpr size_t kCardCount = sizeof(kCards) / sizeof(kCards[0]);
+constexpr size_t kMaxSyncedCards = 20;
+constexpr size_t kMaxPendingReviews = 20;
+constexpr size_t kMaxWordIdLength = 24;
+constexpr size_t kMaxWordLength = 32;
+constexpr size_t kMaxMeaningLength = 192;
+constexpr size_t kMaxExampleLength = 256;
 constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kShakeWindowMs = 650;
@@ -46,7 +55,25 @@ constexpr float kOrientationThreshold = 0.45F;
 constexpr float kShakeThreshold = 1.65F;
 constexpr float kShakeReleaseThreshold = 1.25F;
 
-ReviewResult reviewResults[kCardCount] = {};
+struct DeviceCard {
+  char id[kMaxWordIdLength];
+  char word[kMaxWordLength];
+  char meaning[kMaxMeaningLength];
+  char example[kMaxExampleLength];
+};
+
+struct PendingReview {
+  char wordId[kMaxWordIdLength];
+  Rating rating;
+  uint32_t reviewedAtMs;
+  bool uploaded;
+};
+
+ReviewResult reviewResults[kMaxSyncedCards] = {};
+DeviceCard syncedCards[kMaxSyncedCards] = {};
+PendingReview pendingReviews[kMaxPendingReviews] = {};
+size_t syncedCardCount = 0;
+size_t pendingReviewCount = 0;
 Page currentPage = Page::Word;
 size_t currentCardIndex = 0;
 uint8_t contentPageIndex = 0;
@@ -131,6 +158,25 @@ void setContentPage(Page page, uint8_t pageIndex) {
   setPage(page);
 }
 
+size_t activeCardCount() {
+  return syncedCardCount > 0 ? syncedCardCount : kCardCount;
+}
+
+const char* currentWordId() {
+  return syncedCardCount > 0 ? syncedCards[currentCardIndex].id : kCards[currentCardIndex].word;
+}
+
+Card currentCard() {
+  if (syncedCardCount == 0) {
+    return kCards[currentCardIndex];
+  }
+  return {
+      syncedCards[currentCardIndex].word,
+      syncedCards[currentCardIndex].meaning,
+      syncedCards[currentCardIndex].example,
+  };
+}
+
 void readImu() {
   M5.IMU.getAccelData(&accelX, &accelY, &accelZ);
 }
@@ -184,7 +230,8 @@ void drawCenteredText(const char* text, int16_t y, uint8_t textSize) {
 }
 
 void drawWordPage() {
-  drawCenteredText(kCards[currentCardIndex].word, 52, 3);
+  const Card card = currentCard();
+  drawCenteredText(card.word, 52, 3);
 }
 
 void drawContentPage(const char* text) {
@@ -205,11 +252,13 @@ void drawContentPage(const char* text) {
 }
 
 void drawMeaningPage() {
-  drawContentPage(kCards[currentCardIndex].meaning);
+  const Card card = currentCard();
+  drawContentPage(card.meaning);
 }
 
 void drawExamplePage() {
-  drawContentPage(kCards[currentCardIndex].example);
+  const Card card = currentCard();
+  drawContentPage(card.example);
 }
 
 void drawRatingOption(Rating rating) {
@@ -217,8 +266,10 @@ void drawRatingOption(Rating rating) {
 }
 
 void drawRatingPage() {
+  const Card card = currentCard();
   M5.Lcd.setTextSize(2);
-  M5.Lcd.println(kCards[currentCardIndex].word);
+  M5.Lcd.print(card.word);
+  M5.Lcd.println();
   M5.Lcd.println();
   drawRatingOption(Rating::Forgot);
   drawRatingOption(Rating::Hard);
@@ -227,7 +278,10 @@ void drawRatingPage() {
 
 void drawDonePage() {
   drawCenteredText("Review complete", 38, 2);
-  drawCenteredText("3/3 rated", 76, 2);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(74, 76);
+  M5.Lcd.printf("%u/%u rated", static_cast<unsigned>(activeCardCount()),
+                static_cast<unsigned>(activeCardCount()));
 }
 
 void render() {
@@ -272,8 +326,35 @@ Rating nextRating(Rating rating) {
   return Rating::Forgot;
 }
 
+void drawStatusMessage(const char* line1, const char* line2 = "") {
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setCursor(8, 36);
+  M5.Lcd.setTextColor(WHITE, BLACK);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.println(line1);
+  if (line2[0] != '\0') {
+    M5.Lcd.println(line2);
+  }
+}
+
+bool connectWifi() {
+  drawStatusMessage("WiFi...");
+  Serial.printf("WiFi connecting ssid=%s\n", STICKWORDS_WIFI_SSID);
+  return false;
+}
+
+bool fetchDeviceTasks() {
+  drawStatusMessage("Sync failed", "using samples");
+  Serial.printf("Sync failed url=%s\n", STICKWORDS_SERVER_URL);
+  return false;
+}
+
+bool uploadPendingReviews() {
+  return false;
+}
+
 void resetReviewSet() {
-  for (size_t i = 0; i < kCardCount; ++i) {
+  for (size_t i = 0; i < kMaxSyncedCards; ++i) {
     reviewResults[i] = {false, Rating::Forgot, 0};
   }
   currentCardIndex = 0;
@@ -287,7 +368,7 @@ void resetReviewSet() {
 
 void submitRating() {
   ReviewResult& result = reviewResults[currentCardIndex];
-  const Card& card = kCards[currentCardIndex];
+  const Card card = currentCard();
 
   if (result.hasRating) {
     Serial.printf("Review overwritten word=%s old=%s new=%s\n", card.word,
@@ -301,18 +382,19 @@ void submitRating() {
   result.rating = selectedRating;
   result.reviewCount += 1;
   lastSubmittedIndex = static_cast<int>(currentCardIndex);
+  uploadPendingReviews();
 
   if (isReRating && returnAfterReRatingIndex >= 0) {
     currentCardIndex = static_cast<size_t>(returnAfterReRatingIndex);
     contentPageIndex = 0;
     returnAfterReRatingIndex = -1;
     isReRating = false;
-    setPage(currentCardIndex >= kCardCount ? Page::Done : Page::Word);
+    setPage(currentCardIndex >= activeCardCount() ? Page::Done : Page::Word);
     return;
   }
 
   ++currentCardIndex;
-  if (currentCardIndex >= kCardCount) {
+  if (currentCardIndex >= activeCardCount()) {
     Serial.println("Review complete");
     setPage(Page::Done);
     return;
@@ -357,14 +439,14 @@ void updateShakeGood(uint32_t now) {
 
   selectedRating = Rating::Good;
   lastShakeAt = now;
-  Serial.printf("Shake good word=%s magnitude=%.2f\n", kCards[currentCardIndex].word,
-                magnitude);
+  Serial.printf("Shake good word=%s magnitude=%.2f\n", currentCard().word, magnitude);
   submitRating();
 }
 
 bool tryReRatePrevious() {
+  const size_t cardCount = activeCardCount();
   const int previousIndex = currentPage == Page::Done
-                                ? static_cast<int>(kCardCount - 1)
+                                ? static_cast<int>(cardCount - 1)
                                 : static_cast<int>(currentCardIndex) - 1;
 
   if (previousIndex < 0 || !reviewResults[previousIndex].hasRating) {
@@ -373,31 +455,32 @@ bool tryReRatePrevious() {
   }
 
   returnAfterReRatingIndex = currentPage == Page::Done
-                                 ? static_cast<int>(kCardCount)
+                                 ? static_cast<int>(cardCount)
                                  : static_cast<int>(currentCardIndex);
   currentCardIndex = static_cast<size_t>(previousIndex);
   selectedRating = reviewResults[currentCardIndex].rating;
   isReRating = true;
-  Serial.printf("Re-rating previous word=%s rating=%s\n", kCards[currentCardIndex].word,
+  Serial.printf("Re-rating previous word=%s rating=%s\n", currentCard().word,
                 ratingName(selectedRating));
   setPage(Page::Rating);
   return true;
 }
 
 void handleButtonAShortPress() {
+  const Card card = currentCard();
   switch (currentPage) {
     case Page::Word:
       setContentPage(Page::Meaning, 0);
       break;
     case Page::Meaning:
-      if (hasMoreContentPage(kCards[currentCardIndex].meaning)) {
+      if (hasMoreContentPage(card.meaning)) {
         setContentPage(Page::Meaning, contentPageIndex + 1);
       } else {
         setContentPage(Page::Example, 0);
       }
       break;
     case Page::Example:
-      if (hasMoreContentPage(kCards[currentCardIndex].example)) {
+      if (hasMoreContentPage(card.example)) {
         setContentPage(Page::Example, contentPageIndex + 1);
       } else {
         selectedRating = reviewResults[currentCardIndex].hasRating
@@ -410,8 +493,7 @@ void handleButtonAShortPress() {
       break;
     case Page::Rating:
       selectedRating = nextRating(selectedRating);
-      Serial.printf("Rating changed word=%s rating=%s\n", kCards[currentCardIndex].word,
-                    ratingName(selectedRating));
+      Serial.printf("Rating changed word=%s rating=%s\n", card.word, ratingName(selectedRating));
       needsRender = true;
       break;
     case Page::Done:
@@ -427,6 +509,7 @@ void handleButtonALongPress() {
 }
 
 void handleButtonBShortPress() {
+  const Card card = currentCard();
   switch (currentPage) {
     case Page::Word:
       tryReRatePrevious();
@@ -443,12 +526,12 @@ void handleButtonBShortPress() {
         setContentPage(Page::Example, contentPageIndex - 1);
       } else {
         setContentPage(Page::Meaning,
-                       static_cast<uint8_t>(contentPageCount(kCards[currentCardIndex].meaning) - 1));
+                       static_cast<uint8_t>(contentPageCount(card.meaning) - 1));
       }
       break;
     case Page::Rating:
       setContentPage(Page::Example,
-                     static_cast<uint8_t>(contentPageCount(kCards[currentCardIndex].example) - 1));
+                     static_cast<uint8_t>(contentPageCount(card.example) - 1));
       break;
     case Page::Done:
       tryReRatePrevious();
@@ -475,6 +558,9 @@ void setup() {
   Serial.println("StickWords Stage 3C boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
+  if (connectWifi()) {
+    fetchDeviceTasks();
+  }
   logPage();
   render();
 }

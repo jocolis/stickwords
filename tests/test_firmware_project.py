@@ -142,6 +142,25 @@ class FirmwareProjectTests(unittest.TestCase):
         )
         self.assertNotEqual(tracked.returncode, 0, tracked.stdout)
 
+    def test_stage4_firmware_has_wifi_http_sync_storage(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+
+        self.assertIn("#include <WiFi.h>", source)
+        self.assertIn("#include <HTTPClient.h>", source)
+        self.assertIn('#include "secrets.h"', source)
+        self.assertIn("constexpr size_t kMaxSyncedCards", source)
+        self.assertIn("constexpr size_t kMaxPendingReviews", source)
+        self.assertIn("struct DeviceCard", source)
+        self.assertIn("struct PendingReview", source)
+        self.assertIn("DeviceCard syncedCards[kMaxSyncedCards]", source)
+        self.assertIn("PendingReview pendingReviews[kMaxPendingReviews]", source)
+        self.assertIn("connectWifi()", source)
+        self.assertIn("fetchDeviceTasks()", source)
+        self.assertIn("uploadPendingReviews()", source)
+        self.assertIn("STICKWORDS_SERVER_URL", source)
+        self.assertIn("WiFi...", source)
+        self.assertIn("Sync failed", source)
+
 
 if __name__ == "__main__":
     unittest.main()
