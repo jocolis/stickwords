@@ -5,8 +5,8 @@ namespace {
 
 enum class Page {
   Word,
-  MeaningSummary,
-  FullExample,
+  Meaning,
+  Example,
   Rating,
   Done,
 };
@@ -37,10 +37,12 @@ constexpr Card kCards[] = {
 
 constexpr size_t kCardCount = sizeof(kCards) / sizeof(kCards[0]);
 constexpr uint32_t kButtonLongPressMs = 650;
+constexpr size_t kContentPageChars = 58;
 
 ReviewResult reviewResults[kCardCount] = {};
 Page currentPage = Page::Word;
 size_t currentCardIndex = 0;
+uint8_t contentPageIndex = 0;
 Rating selectedRating = Rating::Forgot;
 int lastSubmittedIndex = -1;
 int returnAfterReRatingIndex = -1;
@@ -63,9 +65,9 @@ const char* pageName(Page page) {
   switch (page) {
     case Page::Word:
       return "word";
-    case Page::MeaningSummary:
-      return "summary";
-    case Page::FullExample:
+    case Page::Meaning:
+      return "meaning";
+    case Page::Example:
       return "example";
     case Page::Rating:
       return "rating";
@@ -88,6 +90,23 @@ void setPage(Page page) {
   logPage();
 }
 
+size_t contentPageCount(const char* text) {
+  const size_t length = std::strlen(text);
+  if (length == 0) {
+    return 1;
+  }
+  return (length + kContentPageChars - 1) / kContentPageChars;
+}
+
+bool hasMoreContentPage(const char* text) {
+  return static_cast<size_t>(contentPageIndex + 1) < contentPageCount(text);
+}
+
+void setContentPage(Page page, uint8_t pageIndex) {
+  contentPageIndex = pageIndex;
+  setPage(page);
+}
+
 void drawCenteredText(const char* text, int16_t y, uint8_t textSize) {
   M5.Lcd.setTextSize(textSize);
   const int16_t textWidth = M5.Lcd.textWidth(text);
@@ -100,26 +119,29 @@ void drawWordPage() {
   drawCenteredText(kCards[currentCardIndex].word, 52, 3);
 }
 
-void drawMeaningSummaryPage() {
-  const Card& card = kCards[currentCardIndex];
+void drawContentPage(const char* text) {
   M5.Lcd.setTextSize(2);
-  M5.Lcd.println(card.word);
-  M5.Lcd.println();
-  M5.Lcd.printf("meaning: %s\n", card.meaning);
-  M5.Lcd.println();
-  M5.Lcd.print("ex: ");
-  for (uint8_t i = 0; card.example[i] != '\0' && i < 28; ++i) {
-    M5.Lcd.print(card.example[i]);
+
+  const size_t start = static_cast<size_t>(contentPageIndex) * kContentPageChars;
+  const size_t length = std::strlen(text);
+  const size_t end = start + kContentPageChars < length ? start + kContentPageChars : length;
+
+  for (size_t i = start; i < end; ++i) {
+    M5.Lcd.print(text[i]);
   }
-  if (std::strlen(card.example) > 28) {
+
+  if (end < length) {
     M5.Lcd.print("...");
   }
   M5.Lcd.println();
 }
 
-void drawFullExamplePage() {
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.println(kCards[currentCardIndex].example);
+void drawMeaningPage() {
+  drawContentPage(kCards[currentCardIndex].meaning);
+}
+
+void drawExamplePage() {
+  drawContentPage(kCards[currentCardIndex].example);
 }
 
 void drawRatingOption(Rating rating) {
@@ -127,9 +149,8 @@ void drawRatingOption(Rating rating) {
 }
 
 void drawRatingPage() {
-  const Card& card = kCards[currentCardIndex];
   M5.Lcd.setTextSize(2);
-  M5.Lcd.println(card.word);
+  M5.Lcd.println(kCards[currentCardIndex].word);
   M5.Lcd.println();
   drawRatingOption(Rating::Forgot);
   drawRatingOption(Rating::Hard);
@@ -156,11 +177,11 @@ void render() {
     case Page::Word:
       drawWordPage();
       break;
-    case Page::MeaningSummary:
-      drawMeaningSummaryPage();
+    case Page::Meaning:
+      drawMeaningPage();
       break;
-    case Page::FullExample:
-      drawFullExamplePage();
+    case Page::Example:
+      drawExamplePage();
       break;
     case Page::Rating:
       drawRatingPage();
@@ -188,6 +209,7 @@ void resetReviewSet() {
     reviewResults[i] = {false, Rating::Forgot, 0};
   }
   currentCardIndex = 0;
+  contentPageIndex = 0;
   selectedRating = Rating::Forgot;
   lastSubmittedIndex = -1;
   returnAfterReRatingIndex = -1;
@@ -214,6 +236,7 @@ void submitRating() {
 
   if (isReRating && returnAfterReRatingIndex >= 0) {
     currentCardIndex = static_cast<size_t>(returnAfterReRatingIndex);
+    contentPageIndex = 0;
     returnAfterReRatingIndex = -1;
     isReRating = false;
     setPage(currentCardIndex >= kCardCount ? Page::Done : Page::Word);
@@ -228,6 +251,7 @@ void submitRating() {
   }
 
   selectedRating = Rating::Forgot;
+  contentPageIndex = 0;
   setPage(Page::Word);
 }
 
@@ -256,18 +280,26 @@ bool tryReRatePrevious() {
 void handleButtonAShortPress() {
   switch (currentPage) {
     case Page::Word:
-      setPage(Page::MeaningSummary);
+      setContentPage(Page::Meaning, 0);
       break;
-    case Page::MeaningSummary:
-      setPage(Page::FullExample);
+    case Page::Meaning:
+      if (hasMoreContentPage(kCards[currentCardIndex].meaning)) {
+        setContentPage(Page::Meaning, contentPageIndex + 1);
+      } else {
+        setContentPage(Page::Example, 0);
+      }
       break;
-    case Page::FullExample:
-      selectedRating = reviewResults[currentCardIndex].hasRating
-                           ? reviewResults[currentCardIndex].rating
-                           : Rating::Forgot;
-      setPage(Page::Rating);
-      Serial.printf("Page rating index=%u selected=%s\n",
-                    static_cast<unsigned>(currentCardIndex), ratingName(selectedRating));
+    case Page::Example:
+      if (hasMoreContentPage(kCards[currentCardIndex].example)) {
+        setContentPage(Page::Example, contentPageIndex + 1);
+      } else {
+        selectedRating = reviewResults[currentCardIndex].hasRating
+                             ? reviewResults[currentCardIndex].rating
+                             : Rating::Forgot;
+        setPage(Page::Rating);
+        Serial.printf("Page rating index=%u selected=%s\n",
+                      static_cast<unsigned>(currentCardIndex), ratingName(selectedRating));
+      }
       break;
     case Page::Rating:
       selectedRating = nextRating(selectedRating);
@@ -292,14 +324,24 @@ void handleButtonBShortPress() {
     case Page::Word:
       tryReRatePrevious();
       break;
-    case Page::MeaningSummary:
-      setPage(Page::Word);
+    case Page::Meaning:
+      if (contentPageIndex > 0) {
+        setContentPage(Page::Meaning, contentPageIndex - 1);
+      } else {
+        setPage(Page::Word);
+      }
       break;
-    case Page::FullExample:
-      setPage(Page::MeaningSummary);
+    case Page::Example:
+      if (contentPageIndex > 0) {
+        setContentPage(Page::Example, contentPageIndex - 1);
+      } else {
+        setContentPage(Page::Meaning,
+                       static_cast<uint8_t>(contentPageCount(kCards[currentCardIndex].meaning) - 1));
+      }
       break;
     case Page::Rating:
-      setPage(Page::FullExample);
+      setContentPage(Page::Example,
+                     static_cast<uint8_t>(contentPageCount(kCards[currentCardIndex].example) - 1));
       break;
     case Page::Done:
       tryReRatePrevious();

@@ -211,3 +211,25 @@
 下一步：
 
 - 上传到真实 M5Stick C Plus，确认小屏幕 UI 观感和字号是否舒适。
+
+## 2026-05-24 阶段 3B：释义与例句分页流程
+
+完成内容：
+
+- 将复习流程调整为：单词页 -> 释义页 1..N -> 例句页 1..N -> 评分页。
+- 第二页不再重复显示单词，只显示释义内容。
+- 例句页不再和释义页混排，例句过长时按需进入下一页。
+- 释义和例句共用内容分页函数，为后续真实 CSV 长释义、中文释义或更长例句预留扩展口子。
+- Button B 仍保持返回上一页；下一个单词的单词页仍可返回上一个单词评分页重新评分。
+
+测试结果：
+
+- 仓库级 Python 全量测试通过 53 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 固件编译通过：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+
+下一步：
+
+- 上传到真实 M5Stick C Plus，确认释义页和例句分页的阅读节奏是否合适。

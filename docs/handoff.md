@@ -38,7 +38,7 @@ Note: PlatformIO auto-detected COM1 on this PC, but the M5Stick appeared as COM5
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 52 tests pass.
+Expected result: all 53 tests pass.
 
 ## What Works
 
@@ -65,7 +65,8 @@ Expected result: all 52 tests pass.
   - current firmware has since moved to Stage 3B and no longer exposes IMU readout
 - Stage 3B review UI prototype:
   - three built-in fake cards
-  - word, summary, full example, rating, and done pages
+  - word, meaning, example, rating, and done pages
+  - meaning and example pages both use the same content paging path for long text
   - compact review layout without the old title, page counter, or button-hint footer
   - larger word, meaning, example, rating, and done-page text
   - Button A short press advances pages or cycles rating

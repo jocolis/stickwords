@@ -23,8 +23,8 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("StickWords Stage 3B boot", source)
         self.assertIn("enum class Page", source)
         self.assertIn("Word", source)
-        self.assertIn("MeaningSummary", source)
-        self.assertIn("FullExample", source)
+        self.assertIn("Meaning", source)
+        self.assertIn("Example", source)
         self.assertIn("Rating", source)
         self.assertIn("Done", source)
         self.assertIn("struct Card", source)
@@ -60,6 +60,21 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertNotIn("B: re-rate", source)
         self.assertNotIn("Hold A: save", source)
         self.assertIn("StickWords Stage 3B boot", source)
+
+    def test_stage3b_uses_single_flow_content_paging(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+
+        self.assertIn("constexpr size_t kContentPageChars", source)
+        self.assertIn("uint8_t contentPageIndex", source)
+        self.assertIn("contentPageCount(", source)
+        self.assertIn("drawContentPage(", source)
+        self.assertIn("hasMoreContentPage(", source)
+        self.assertIn("Page::Meaning", source)
+        self.assertIn("Page::Example", source)
+        self.assertNotIn("MeaningSummary", source)
+        self.assertNotIn("FullExample", source)
+        self.assertNotIn("M5.Lcd.println(card.word);", source)
+        self.assertNotIn('M5.Lcd.print("ex: ");', source)
 
     def test_platformio_build_output_is_ignored(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
