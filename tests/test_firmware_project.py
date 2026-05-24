@@ -90,6 +90,21 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn('Serial.printf("Orientation rotation=%u', source)
         self.assertIn("needsRender = true", source)
 
+    def test_stage3c_rating_page_supports_double_shake_good(self):
+        source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
+
+        self.assertIn("constexpr float kShakeThreshold", source)
+        self.assertIn("constexpr uint32_t kShakeWindowMs", source)
+        self.assertIn("constexpr uint32_t kShakeCooldownMs", source)
+        self.assertIn("uint8_t shakeCount", source)
+        self.assertIn("float accelMagnitude()", source)
+        self.assertIn("void resetShakeDetection()", source)
+        self.assertIn("void updateShakeGood(uint32_t now)", source)
+        self.assertIn("currentPage != Page::Rating", source)
+        self.assertIn("selectedRating = Rating::Good", source)
+        self.assertIn('Serial.printf("Shake good word=%s', source)
+        self.assertIn("submitRating()", source)
+
     def test_platformio_build_output_is_ignored(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 

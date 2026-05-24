@@ -261,3 +261,31 @@
 下一步：
 
 - 上传到真实 M5Stick C Plus，检查左手/右手持握时是否自动转正。
+
+真机验证：
+
+- 用户已确认左手/右手自动旋转方向正确。
+
+## 2026-05-24 阶段 3C-2：评分页双摇 good
+
+完成内容：
+
+- 只在评分页启用双摇动作，不影响单词页、释义页、例句页或 done 页。
+- 使用加速度模长检测摇晃峰值，两次峰值在短窗口内出现时触发。
+- 触发后将当前评分设为 `good`，立即调用现有提交流程进入下一个单词。
+- 保留下一词单词页 Button B 回到上一词评分页重新评分的机制。
+- 加入冷却时间，避免一次剧烈摇晃连续提交多张卡片。
+- 串口打印 `Shake good word=... magnitude=...`，方便真机验证阈值是否合适。
+
+测试结果：
+
+- 仓库级 Python 全量测试通过 55 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 固件编译通过：
+  `cd C:\Users\ASUS\Documents\M5Stick\firmware`
+  `pio run`
+
+下一步：
+
+- 上传到真实 M5Stick C Plus，在评分页测试双摇是否稳定触发 `good`。
+- 如果太灵敏或太迟钝，调节 `kShakeThreshold`、`kShakeReleaseThreshold`、`kShakeWindowMs` 和 `kShakeCooldownMs`。

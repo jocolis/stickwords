@@ -1,4 +1,5 @@
 #include <M5StickCPlus.h>
+#include <cmath>
 #include <cstring>
 
 namespace {
@@ -38,8 +39,12 @@ constexpr Card kCards[] = {
 constexpr size_t kCardCount = sizeof(kCards) / sizeof(kCards[0]);
 constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
+constexpr uint32_t kShakeWindowMs = 650;
+constexpr uint32_t kShakeCooldownMs = 900;
 constexpr size_t kContentPageChars = 58;
 constexpr float kOrientationThreshold = 0.45F;
+constexpr float kShakeThreshold = 1.65F;
+constexpr float kShakeReleaseThreshold = 1.25F;
 
 ReviewResult reviewResults[kCardCount] = {};
 Page currentPage = Page::Word;
@@ -51,6 +56,10 @@ uint32_t pendingRotationSince = 0;
 float accelX = 0.0F;
 float accelY = 0.0F;
 float accelZ = 0.0F;
+uint8_t shakeCount = 0;
+uint32_t shakeWindowStartedAt = 0;
+uint32_t lastShakeAt = 0;
+bool shakeAboveThreshold = false;
 Rating selectedRating = Rating::Forgot;
 int lastSubmittedIndex = -1;
 int returnAfterReRatingIndex = -1;
@@ -92,8 +101,15 @@ void logPage() {
       static_cast<unsigned>(currentCardIndex));
 }
 
+void resetShakeDetection() {
+  shakeCount = 0;
+  shakeWindowStartedAt = 0;
+  shakeAboveThreshold = false;
+}
+
 void setPage(Page page) {
   currentPage = page;
+  resetShakeDetection();
   needsRender = true;
   logPage();
 }
@@ -117,6 +133,10 @@ void setContentPage(Page page, uint8_t pageIndex) {
 
 void readImu() {
   M5.IMU.getAccelData(&accelX, &accelY, &accelZ);
+}
+
+float accelMagnitude() {
+  return std::sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
 }
 
 uint8_t detectLandscapeRotation() {
@@ -303,6 +323,45 @@ void submitRating() {
   setPage(Page::Word);
 }
 
+void updateShakeGood(uint32_t now) {
+  if (currentPage != Page::Rating) {
+    resetShakeDetection();
+    return;
+  }
+
+  if (now - lastShakeAt < kShakeCooldownMs) {
+    return;
+  }
+
+  const float magnitude = accelMagnitude();
+  if (magnitude < kShakeReleaseThreshold) {
+    shakeAboveThreshold = false;
+    return;
+  }
+
+  if (magnitude < kShakeThreshold || shakeAboveThreshold) {
+    return;
+  }
+
+  shakeAboveThreshold = true;
+  if (shakeCount == 0 || now - shakeWindowStartedAt > kShakeWindowMs) {
+    shakeCount = 1;
+    shakeWindowStartedAt = now;
+    return;
+  }
+
+  shakeCount += 1;
+  if (shakeCount < 2) {
+    return;
+  }
+
+  selectedRating = Rating::Good;
+  lastShakeAt = now;
+  Serial.printf("Shake good word=%s magnitude=%.2f\n", kCards[currentCardIndex].word,
+                magnitude);
+  submitRating();
+}
+
 bool tryReRatePrevious() {
   const int previousIndex = currentPage == Page::Done
                                 ? static_cast<int>(kCardCount - 1)
@@ -422,8 +481,10 @@ void setup() {
 
 void loop() {
   M5.update();
+  const uint32_t now = millis();
   readImu();
-  updateAutoRotation(millis());
+  updateAutoRotation(now);
+  updateShakeGood(now);
 
   if (M5.BtnA.wasReleasefor(kButtonLongPressMs)) {
     handleButtonALongPress();
