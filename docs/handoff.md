@@ -25,6 +25,9 @@ Then open `http://localhost:8000/admin`.
 
 On Windows, you can also double-click `start_stickwords.bat`.
 
+The admin page displays the suggested `STICKWORDS_SERVER_URL` for the M5Stick.
+When opened from `localhost`, the server tries to show a LAN IPv4 URL such as `http://192.168.x.x:8000` instead of `localhost`.
+
 ## How To Configure Firmware Sync
 
 Create a private local secrets file from the committed template:
@@ -68,7 +71,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 66 tests pass.
+Expected result: all 69 tests pass.
 
 Firmware build:
 
@@ -91,6 +94,7 @@ Expected result: PlatformIO build succeeds.
   - add, edit, and suspend words
   - textarea CSV import
   - `/api/status` JSON status endpoint
+  - suggested M5Stick LAN server URL when opened from localhost
   - Windows launcher through `start_stickwords.bat`
 - Device sync API:
   - `GET /api/device/tasks?limit=20`

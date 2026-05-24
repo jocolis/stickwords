@@ -16,6 +16,7 @@ def call_app(
     body="",
     content_type="application/x-www-form-urlencoded",
     query_string="",
+    http_host="localhost:8000",
 ):
     body_bytes = body.encode("utf-8")
     captured = {}
@@ -33,6 +34,7 @@ def call_app(
         "wsgi.input": io.BytesIO(body_bytes),
         "SERVER_NAME": "127.0.0.1",
         "SERVER_PORT": "8000",
+        "HTTP_HOST": http_host,
         "wsgi.url_scheme": "http",
     }
     response_body = b"".join(app(environ, start_response)).decode("utf-8")
@@ -58,6 +60,53 @@ class WebTests(unittest.TestCase):
             self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
             self.assertIn("StickWords", body)
             self.assertIn("abandon", body)
+
+    def test_get_admin_prefers_lan_server_url_for_m5stick(self):
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir)
+            app = create_app(service, lan_host_lookup=lambda: "192.168.1.23")
+
+            status, _, body = call_app(
+                app,
+                "GET",
+                "/admin",
+                http_host="localhost:8000",
+            )
+
+            self.assertEqual(status, "200 OK")
+            self.assertIn("http://192.168.1.23:8000", body)
+            self.assertNotIn("http://localhost:8000", body)
+
+    def test_get_admin_keeps_explicit_lan_host(self):
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir)
+            app = create_app(service, lan_host_lookup=lambda: "192.168.1.23")
+
+            status, _, body = call_app(
+                app,
+                "GET",
+                "/admin",
+                http_host="192.168.1.99:8000",
+            )
+
+            self.assertEqual(status, "200 OK")
+            self.assertIn("http://192.168.1.99:8000", body)
+            self.assertNotIn("http://192.168.1.23:8000", body)
+
+    def test_get_admin_falls_back_to_localhost_when_lan_lookup_fails(self):
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir)
+            app = create_app(service, lan_host_lookup=lambda: "")
+
+            status, _, body = call_app(
+                app,
+                "GET",
+                "/admin",
+                http_host="localhost:8000",
+            )
+
+            self.assertEqual(status, "200 OK")
+            self.assertIn("http://localhost:8000", body)
 
     def test_post_add_word_redirects_and_persists(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)

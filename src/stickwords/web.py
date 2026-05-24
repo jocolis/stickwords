@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import socket
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus
 from wsgiref.simple_server import make_server
@@ -44,16 +45,53 @@ def _redirect(start_response, location: str):
     return [b""]
 
 
-def _server_url(environ: dict) -> str:
+def _server_url(environ: dict, lan_host_lookup=None) -> str:
     scheme = environ.get("wsgi.url_scheme") or "http"
     host = environ.get("HTTP_HOST")
     if not host:
         host = f'{environ.get("SERVER_NAME", "127.0.0.1")}:{environ.get("SERVER_PORT", "8000")}'
 
+    port = _host_port(host) or environ.get("SERVER_PORT", "8000")
+    if _is_loopback_host(host):
+        lan_host = (lan_host_lookup or _detect_lan_host)()
+        if lan_host:
+            host = f"{lan_host}:{port}"
+
     return f"{scheme}://{host}"
 
 
-def create_app(service: StickWordsService):
+def _host_port(host: str) -> str:
+    if host.startswith("["):
+        _, _, remainder = host.partition("]")
+        if remainder.startswith(":"):
+            return remainder[1:]
+        return ""
+
+    if ":" not in host:
+        return ""
+
+    return host.rsplit(":", 1)[1]
+
+
+def _is_loopback_host(host: str) -> bool:
+    if host.startswith("["):
+        hostname = host.partition("]")[0].strip("[]").lower()
+    else:
+        hostname = host.split(":", 1)[0].lower()
+
+    return hostname in {"localhost", "127.0.0.1", "::1"}
+
+
+def _detect_lan_host() -> str:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return ""
+
+
+def create_app(service: StickWordsService, lan_host_lookup=None):
     def app(environ, start_response):
         method = (environ.get("REQUEST_METHOD") or "GET").upper()
         path = environ.get("PATH_INFO") or "/"
@@ -65,7 +103,7 @@ def create_app(service: StickWordsService):
                     status=service.get_status(),
                     words=service.recent_words(),
                     message=(query.get("message") or [""])[0],
-                    server_url=_server_url(environ),
+                    server_url=_server_url(environ, lan_host_lookup),
                 )
                 return _response(
                     start_response,

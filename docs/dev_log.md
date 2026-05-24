@@ -335,3 +335,25 @@
 - 在 `firmware\include\secrets.h` 中填写真实 2.4 GHz Wi-Fi 和 PC 局域网地址。
 - 上传到真实 M5Stick C Plus，确认串口日志出现 Wi-Fi 连接、任务拉取和评分上传。
 - 在 PC 管理页或 `data\vocab.csv` 中确认 M5Stick 提交的评分已经生效。
+
+## 2026-05-24 Stage 4 polish: 管理页显示 M5Stick LAN URL
+
+完成内容：
+
+- 调整 PC Web 后端的 `server_url` 生成逻辑。
+- 当用户从 `localhost` 或 `127.0.0.1` 打开 `/admin` 时，管理页会优先显示自动探测到的局域网 IPv4 URL，例如 `http://192.168.x.x:8000`。
+- 如果局域网地址探测失败，则回退显示当前访问地址。
+- 如果用户已经通过局域网 IP 打开管理页，则保持该地址不变。
+
+测试结果：
+
+- 先写入失败测试，确认旧实现不支持 `lan_host_lookup` 注入点。
+- Web 测试通过 20 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_web -v`
+- 仓库级 Python 全量测试通过 69 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+
+下一步：
+
+- 启动 PC 后端后，在管理页查看 `M5Stick server URL`。
+- 将这个 URL 写入 `firmware\include\secrets.h` 的 `STICKWORDS_SERVER_URL`，再上传固件做真机同步验证。
