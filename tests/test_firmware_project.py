@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import unittest
 
 
@@ -122,7 +123,24 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("STICKWORDS_WIFI_PASSWORD", text)
         self.assertIn("STICKWORDS_SERVER_URL", text)
         self.assertIn("your-2.4ghz-wifi-name", text)
-        self.assertFalse((ROOT / "firmware" / "include" / "secrets.h").exists())
+
+        ignored = subprocess.run(
+            ["git", "check-ignore", "firmware/include/secrets.h"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(ignored.returncode, 0, ignored.stderr)
+
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "firmware/include/secrets.h"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(tracked.returncode, 0, tracked.stdout)
 
 
 if __name__ == "__main__":
