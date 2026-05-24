@@ -539,3 +539,33 @@
 下一步：
 
 - 上传固件到真实 M5Stick C Plus，验证在 PC 后端关闭、Wi-Fi 错误、无 due cards 三种情况下都不会显示测试词。
+
+## 2026-05-24 Stage 4 bugfix: PC 后端线程化
+
+完成内容：
+
+- 排查 M5Stick 显示 `Sync failed / check server` 的链路。
+- 确认 PC 当前仍是 `192.168.5.105:8000`，但本机请求 `/admin` 和 `/api/device/tasks` 会超时。
+- 发现后端使用标准库 `wsgiref.simple_server.make_server` 的单线程服务器，一个卡住的连接可能阻塞后续管理页和 M5Stick 同步请求。
+- 新增 `ThreadedWSGIServer`，让 PC 后端可以并发处理请求。
+- 停止卡住的旧后端进程后，用新代码重启后端。
+
+测试结果：
+
+- 先写入失败测试，确认旧后端没有 `ThreadedWSGIServer`。
+- Web 测试通过 23 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_web -v`
+- 仓库级 Python 全量测试通过 81 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- 本机和局域网接口均返回 200：
+  `http://127.0.0.1:8000/api/device/tasks?limit=20`
+  `http://192.168.5.105:8000/api/device/tasks?limit=20`
+
+遇到的问题与决策：
+
+- 当时 8000 端口处于 LISTENING，但 HTTP 请求超时，因此不是 M5Stick Wi-Fi 配置错误，而是 PC 后端无响应。
+- 当前接口返回 `tasks: []`，说明后端可达但没有到期卡片；M5Stick 重新同步后应显示 `No due cards`。
+
+下一步：
+
+- 如果再次出现 `Sync failed / check server`，先在 PC 上打开 `/api/device/tasks?limit=20` 验证后端是否响应。

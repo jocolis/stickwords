@@ -81,6 +81,13 @@ class WebTests(unittest.TestCase):
 
         self.assertTrue(callable(app.main))
 
+    def test_server_uses_threaded_wsgi_server(self):
+        import stickwords.web as web
+
+        self.assertTrue(issubclass(web.ThreadedWSGIServer, web.ThreadingMixIn))
+        self.assertTrue(issubclass(web.ThreadedWSGIServer, web.WSGIServer))
+        self.assertTrue(web.ThreadedWSGIServer.daemon_threads)
+
     def test_get_admin_returns_html(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
         with workspace_temp_dir() as temp_dir:

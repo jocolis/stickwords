@@ -4,12 +4,17 @@ from email import policy
 from email.parser import BytesParser
 import json
 import socket
+from socketserver import ThreadingMixIn
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus
-from wsgiref.simple_server import make_server
+from wsgiref.simple_server import WSGIServer, make_server
 
 from .admin_views import render_admin_page
 from .service import StickWordsService
+
+
+class ThreadedWSGIServer(ThreadingMixIn, WSGIServer):
+    daemon_threads = True
 
 
 def _read_form(environ: dict) -> dict[str, str]:
@@ -277,6 +282,6 @@ def run_server(
 ) -> None:
     service = StickWordsService(data_dir)
     app = create_app(service)
-    with make_server(host, port, app) as server:
+    with make_server(host, port, app, server_class=ThreadedWSGIServer) as server:
         print(f"StickWords admin: http://localhost:{port}/admin")
         server.serve_forever()

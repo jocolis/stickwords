@@ -72,7 +72,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 80 tests pass.
+Expected result: all 81 tests pass.
 
 Firmware build:
 
@@ -121,6 +121,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - `/api/status` JSON status endpoint
   - suggested M5Stick LAN server URL when opened from localhost
   - searchable words table without inline edit controls
+  - threaded local WSGI server to avoid one stuck request blocking sync
   - Windows launcher through `start_stickwords.bat`
 - Device sync API:
   - `GET /api/device/tasks?limit=20`
