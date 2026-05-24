@@ -72,7 +72,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 79 tests pass.
+Expected result: all 80 tests pass.
 
 Firmware build:
 
@@ -140,7 +140,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware HTTP sync:
   - connects to 2.4 GHz Wi-Fi using `secrets.h`
   - fetches due cards from the PC backend at boot
-  - falls back to built-in sample cards when Wi-Fi or sync fails
+  - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - queues review results in RAM
   - posts queued reviews to the PC backend after rating submission
   - keeps pending reviews when upload fails or the server response is not accepted
@@ -152,6 +152,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Windows firewall may block inbound access to port 8000 until allowed.
 - Firmware sync currently uses plain HTTP without authentication.
 - Pending firmware reviews are stored in RAM and are lost on reboot or power loss before upload.
+- Firmware currently cannot review future due cards while offline; it needs Wi-Fi sync to fetch due tasks from the PC backend.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - No USB configuration UI yet.

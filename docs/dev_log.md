@@ -512,3 +512,30 @@
 
 - 上传固件到真实 M5Stick C Plus，重点观察 meaning/example 页是否还会把普通英文单词拆成两行。
 - 如果页面显得过密或 `...` 位置影响阅读，再微调 `kContentLineHeight` 或内容区域边界。
+
+## 2026-05-24 Stage 4 bugfix: 移除正式固件测试词 fallback
+
+完成内容：
+
+- 修复 M5Stick 同步失败或无 due cards 时显示早期 3 个测试词的问题。
+- 移除正式固件中的 `abandon / benefit / curious` 内置样例卡片。
+- 将 `syncedCardCount == 0` 明确解释为“没有可复习卡片”，不再作为样例模式开关。
+- 新增状态页：Wi-Fi 失败显示 `WiFi failed / check network`，同步失败显示 `Sync failed / check server`，无到期卡片显示 `No due cards`。
+- 保留现有同步成功后的复习流程、评分流程、双摇 `good` 和重新评分机制。
+
+测试结果：
+
+- 先写入失败测试，确认旧固件仍含 `kCards[]` 和 `using samples`，且 `activeCardCount()` 会回退到样例卡片数量。
+- 固件测试通过 17 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+遇到的问题与决策：
+
+- 根因是 `syncedCardCount == 0` 同时代表“同步失败/无数据”和“使用样例数据”，状态语义混在一起。
+- 本次只修复误显示测试词；离线状态下根据本地缓存和 due date 继续复习，需要后续单独设计本地缓存与时间机制。
+
+下一步：
+
+- 上传固件到真实 M5Stick C Plus，验证在 PC 后端关闭、Wi-Fi 错误、无 due cards 三种情况下都不会显示测试词。

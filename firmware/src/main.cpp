@@ -14,6 +14,7 @@
 namespace {
 
 enum class Page {
+  Status,
   Word,
   Meaning,
   Example,
@@ -38,14 +39,6 @@ struct ReviewResult {
   Rating rating;
   uint8_t reviewCount;
 };
-
-constexpr Card kCards[] = {
-    {"abandon", "give up", "Do not abandon your plan when practice gets hard."},
-    {"benefit", "good effect", "Daily review has a clear benefit."},
-    {"curious", "wanting to know", "A curious learner asks better questions."},
-};
-
-constexpr size_t kCardCount = sizeof(kCards) / sizeof(kCards[0]);
 constexpr size_t kMaxSyncedCards = 20;
 constexpr size_t kMaxPendingReviews = 20;
 constexpr size_t kMaxWordIdLength = 24;
@@ -88,6 +81,8 @@ PendingReview pendingReviews[kMaxPendingReviews] = {};
 size_t syncedCardCount = 0;
 size_t pendingReviewCount = 0;
 char serverGeneratedAt[kMaxTimestampLength] = "";
+char statusLine1[32] = "Sync...";
+char statusLine2[32] = "";
 uint32_t tasksFetchedAtMs = 0;
 uint32_t reviewBootNonce = 0;
 uint32_t reviewSequence = 0;
@@ -124,6 +119,8 @@ const char* ratingName(Rating rating) {
 
 const char* pageName(Page page) {
   switch (page) {
+    case Page::Status:
+      return "status";
     case Page::Word:
       return "word";
     case Page::Meaning:
@@ -269,20 +266,14 @@ void setContentPage(Page page, size_t pageStart) {
 }
 
 size_t activeCardCount() {
-  if (syncedCardCount == 0) {
-    return kCardCount;
-  }
   return syncedCardCount > kMaxSyncedCards ? kMaxSyncedCards : syncedCardCount;
 }
 
 const char* currentWordId() {
-  return syncedCardCount > 0 ? syncedCards[currentCardIndex].id : kCards[currentCardIndex].word;
+  return syncedCards[currentCardIndex].id;
 }
 
 Card currentCard() {
-  if (syncedCardCount == 0) {
-    return kCards[currentCardIndex];
-  }
   return {
       syncedCards[currentCardIndex].word,
       syncedCards[currentCardIndex].meaning,
@@ -340,6 +331,29 @@ void drawCenteredText(const char* text, int16_t y, uint8_t textSize) {
   const int16_t x = (240 - textWidth) / 2;
   M5.Lcd.setCursor(x < 0 ? 0 : x, y);
   M5.Lcd.println(text);
+}
+
+void copyStatusLine(char* dest, size_t destSize, const char* source) {
+  if (destSize == 0) {
+    return;
+  }
+  std::strncpy(dest, source, destSize - 1);
+  dest[destSize - 1] = '\0';
+}
+
+void setStatusPage(const char* line1, const char* line2 = "") {
+  copyStatusLine(statusLine1, sizeof(statusLine1), line1);
+  copyStatusLine(statusLine2, sizeof(statusLine2), line2);
+  setPage(Page::Status);
+}
+
+void drawStatusPage() {
+  M5.Lcd.setCursor(8, 36);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.println(statusLine1);
+  if (statusLine2[0] != '\0') {
+    M5.Lcd.println(statusLine2);
+  }
 }
 
 void drawWordPage() {
@@ -459,6 +473,9 @@ void render() {
   M5.Lcd.setTextSize(1);
 
   switch (currentPage) {
+    case Page::Status:
+      drawStatusPage();
+      break;
     case Page::Word:
       drawWordPage();
       break;
@@ -515,7 +532,8 @@ bool connectWifi() {
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi failed");
-    drawStatusMessage("WiFi failed", "using samples");
+    drawStatusMessage("WiFi failed", "check network");
+    setStatusPage("WiFi failed", "check network");
     return false;
   }
 
@@ -688,7 +706,8 @@ bool fetchDeviceTasks() {
     http.end();
     syncedCardCount = 0;
     serverGeneratedAt[0] = '\0';
-    drawStatusMessage("Sync failed", "using samples");
+    drawStatusMessage("Sync failed", "check server");
+    setStatusPage("Sync failed", "check server");
     return false;
   }
 
@@ -698,7 +717,8 @@ bool fetchDeviceTasks() {
     Serial.println("Sync parse failed");
     syncedCardCount = 0;
     serverGeneratedAt[0] = '\0';
-    drawStatusMessage("Sync failed", "using samples");
+    drawStatusMessage("Sync failed", "check server");
+    setStatusPage("Sync failed", "check server");
     return false;
   }
   tasksFetchedAtMs = millis();
@@ -706,6 +726,7 @@ bool fetchDeviceTasks() {
   if (syncedCardCount == 0) {
     Serial.println("No due cards");
     drawStatusMessage("No due cards");
+    setStatusPage("No due cards");
     return true;
   }
 
@@ -999,6 +1020,8 @@ bool tryReRatePrevious() {
 void handleButtonAShortPress() {
   const Card card = currentCard();
   switch (currentPage) {
+    case Page::Status:
+      break;
     case Page::Word:
       setContentPage(Page::Meaning, 0);
       break;
@@ -1041,6 +1064,8 @@ void handleButtonALongPress() {
 void handleButtonBShortPress() {
   const Card card = currentCard();
   switch (currentPage) {
+    case Page::Status:
+      break;
     case Page::Word:
       tryReRatePrevious();
       break;
