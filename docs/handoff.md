@@ -76,7 +76,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 84 tests pass.
+Expected result: all tests pass.
 
 Firmware build:
 

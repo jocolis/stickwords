@@ -66,11 +66,11 @@ The firmware should consider RTC valid when:
 
 - year is at least `2024`
 - month is `1..12`
-- date is `1..31`
+- date is valid for that month, including leap-year handling for February
 - hour is `0..23`
 - minute and second are `0..59`
 
-This is not a full calendar validator. It is enough to reject uninitialized or obviously corrupt RTC values.
+This is still intentionally bounded to the timestamp shape used by the backend, but it should reject impossible calendar dates before writing the RTC.
 
 ## Firmware Behavior
 
