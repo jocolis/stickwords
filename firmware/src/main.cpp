@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <esp_system.h>
 
@@ -86,6 +87,16 @@ struct RuntimeConfig {
   char password[kMaxPasswordLength];
   char serverUrl[kMaxServerUrlLength];
   bool valid;
+};
+
+struct RtcTimestamp {
+  uint16_t year;
+  uint8_t month;
+  uint8_t date;
+  uint8_t hour;
+  uint8_t minute;
+  uint8_t second;
+  uint8_t weekDay;
 };
 
 ReviewResult reviewResults[kMaxSyncedCards] = {};
@@ -960,6 +971,115 @@ bool parseDeviceTasksJson(const String& body) {
   return true;
 }
 
+int twoDigitsAt(const String& value, int index) {
+  if (index + 1 >= value.length() ||
+      value[index] < '0' || value[index] > '9' ||
+      value[index + 1] < '0' || value[index + 1] > '9') {
+    return -1;
+  }
+  return (value[index] - '0') * 10 + (value[index + 1] - '0');
+}
+
+bool isValidRtcTimestamp(const RtcTimestamp& timestamp) {
+  return timestamp.year >= 2024 &&
+         timestamp.month >= 1 && timestamp.month <= 12 &&
+         timestamp.date >= 1 && timestamp.date <= 31 &&
+         timestamp.hour <= 23 &&
+         timestamp.minute <= 59 &&
+         timestamp.second <= 59;
+}
+
+bool parseUtcTimestamp(const String& value, RtcTimestamp* timestamp) {
+  if (timestamp == nullptr || value.length() != 20 ||
+      value[4] != '-' || value[7] != '-' || value[10] != 'T' ||
+      value[13] != ':' || value[16] != ':' || value[19] != 'Z') {
+    return false;
+  }
+  const int yearHigh = twoDigitsAt(value, 0);
+  const int yearLow = twoDigitsAt(value, 2);
+  const int month = twoDigitsAt(value, 5);
+  const int date = twoDigitsAt(value, 8);
+  const int hour = twoDigitsAt(value, 11);
+  const int minute = twoDigitsAt(value, 14);
+  const int second = twoDigitsAt(value, 17);
+  if (yearHigh < 0 || yearLow < 0 || month < 0 || date < 0 ||
+      hour < 0 || minute < 0 || second < 0) {
+    return false;
+  }
+  timestamp->year = static_cast<uint16_t>(yearHigh * 100 + yearLow);
+  timestamp->month = static_cast<uint8_t>(month);
+  timestamp->date = static_cast<uint8_t>(date);
+  timestamp->hour = static_cast<uint8_t>(hour);
+  timestamp->minute = static_cast<uint8_t>(minute);
+  timestamp->second = static_cast<uint8_t>(second);
+  timestamp->weekDay = 0;
+  return isValidRtcTimestamp(*timestamp);
+}
+
+String formatRtcTimestamp(const RtcTimestamp& timestamp) {
+  char buffer[25];
+  std::snprintf(
+      buffer,
+      sizeof(buffer),
+      "%04u-%02u-%02uT%02u:%02u:%02uZ",
+      static_cast<unsigned>(timestamp.year),
+      static_cast<unsigned>(timestamp.month),
+      static_cast<unsigned>(timestamp.date),
+      static_cast<unsigned>(timestamp.hour),
+      static_cast<unsigned>(timestamp.minute),
+      static_cast<unsigned>(timestamp.second));
+  return String(buffer);
+}
+
+RtcTimestamp readRtcTimestamp() {
+  RTC_TimeTypeDef time = {};
+  RTC_DateTypeDef date = {};
+  M5.Rtc.GetTime(&time);
+  M5.Rtc.GetDate(&date);
+  return {
+      date.Year,
+      date.Month,
+      date.Date,
+      time.Hours,
+      time.Minutes,
+      time.Seconds,
+      date.WeekDay,
+  };
+}
+
+void logRtcNow() {
+  const RtcTimestamp timestamp = readRtcTimestamp();
+  if (!isValidRtcTimestamp(timestamp)) {
+    Serial.println("RTC now=invalid valid=0");
+    return;
+  }
+  Serial.println("RTC now=" + formatRtcTimestamp(timestamp) + " valid=1");
+}
+
+void setRtcFromGeneratedAt(const char* generatedAt) {
+  RtcTimestamp timestamp = {};
+  if (!parseUtcTimestamp(String(generatedAt), &timestamp)) {
+    Serial.println("RTC set skipped: invalid generated_at");
+    return;
+  }
+
+  RTC_TimeTypeDef time = {
+      timestamp.hour,
+      timestamp.minute,
+      timestamp.second,
+  };
+  RTC_DateTypeDef date = {
+      timestamp.weekDay,
+      timestamp.month,
+      timestamp.date,
+      timestamp.year,
+  };
+  M5.Rtc.SetDate(&date);
+  M5.Rtc.SetTime(&time);
+  Serial.println("RTC set=" + formatRtcTimestamp(timestamp));
+  logRtcNow();
+}
+
 bool fetchDeviceTasks() {
   drawStatusMessage("Sync...");
   HTTPClient http;
@@ -995,6 +1115,7 @@ bool fetchDeviceTasks() {
     setStatusPage("Sync failed", "check server");
     return false;
   }
+  setRtcFromGeneratedAt(serverGeneratedAt);
   tasksFetchedAtMs = millis();
 
   if (syncedCardCount == 0) {
@@ -1391,6 +1512,7 @@ void setup() {
   Serial.println("StickWords Stage 4 boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
+  logRtcNow();
   M5.update();
   const bool forceSetup = M5.BtnB.isPressed();
   if (!loadRuntimeConfig() || forceSetup) {
