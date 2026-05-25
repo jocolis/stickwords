@@ -13,7 +13,7 @@ Completed milestones:
 - Stage 3B local review UI prototype.
 - Stage 3C-1 left/right landscape auto-rotation, validated on the real device.
 - Stage 3C-2 rating-page double-shake `good`, validated on the real device.
-- Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, and device setup portal.
+- Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, device setup portal, and captive portal setup assist.
 
 ## How To Run The PC Backend
 
@@ -158,12 +158,12 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 
 ## Known Limits
 
-- Stage 4 uses a manually configured LAN URL through the setup portal; there is no automatic PC discovery yet.
+- Stage 4 uses a manually configured LAN URL through the setup portal; automatic PC/backend discovery is a future improvement.
 - The M5Stick must be on the same reachable LAN as the PC backend.
 - Windows firewall may block inbound access to port 8000 until allowed.
 - Firmware sync currently uses plain HTTP without authentication.
 - Firmware cached-task fallback only reuses the last synced due-card batch. It does not compute future due cards offline.
-- The M5Stick has no reliable real-time clock in the current design, so it still needs Wi-Fi sync to learn which future cards are due.
+- M5StickC Plus has a BM8563 RTC, but the current firmware does not set or use it yet. Until RTC sync is implemented, it still needs Wi-Fi sync to learn which future cards are due.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
@@ -172,6 +172,11 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Quick Add requires PC-side Python/Tkinter and does not run on the M5Stick itself.
 - DeepSeek generation requires `DEEPSEEK_API_KEY`; without it, the helper is manual-entry only.
 - Tests use `.test-tmp/` inside the repository because this Windows sandbox can reject Python writes to `TemporaryDirectory()` paths.
+
+## Future Improvements
+
+- Automatic PC/backend discovery, for example via mDNS, UDP broadcast, or a setup-page helper that can provide the current LAN server URL without manual copying.
+- RTC-backed offline due-card scheduling: set the BM8563 RTC from the PC/backend during sync, persist enough scheduling metadata on the device, and use the RTC to decide whether cached future cards are due when Wi-Fi is unavailable.
 
 ## Real-Device Validation Notes
 

@@ -675,3 +675,14 @@
 
 注意：
 - 自动弹出配置页依赖手机系统的 captive-portal 行为，不是强保证；手动访问 `http://192.168.4.1` 仍是稳定兜底路径。
+
+## 2026-05-25 design note: RTC and server discovery backlog
+
+讨论结论：
+- 暂时不做 M5Stick 自动发现 PC/backend server。
+- 已把自动发现记录为未来改进点，可考虑 mDNS、UDP broadcast，或 setup 页面辅助提供当前 LAN server URL。
+- M5StickC Plus 确认有 BM8563 RTC，当前固件只是还没有设置和使用它。
+- 后续如果要支持离线判断 future due cards，合理方向是：联网同步时由 PC/backend 给 M5Stick 校准 RTC，同时下发足够的卡片排期元数据；离线启动时用 RTC 判断哪些缓存卡片已经到期。
+
+注意：
+- RTC 可以解决“断网但设备仍有当前日期时间”的问题，但不能替代 PC/backend 的完整排期数据。设备端仍需要本地保存 due date、状态和待上传 review 队列。
