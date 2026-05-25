@@ -197,6 +197,66 @@ def upload_response_accepted(response, attempted_reviews):
     return accepted + skipped >= attempted_reviews
 
 
+def firmware_source_uses_calendar_rtc_validation():
+    source = firmware_source()
+    return (
+        "isLeapYear(" in source and
+        "daysInMonth(" in source and
+        "timestamp.date <= daysInMonth" in source
+    )
+
+
+def firmware_rtc_days_in_month(year, month):
+    if not firmware_source_uses_calendar_rtc_validation():
+        return 31
+    if month == 2:
+        if year % 400 == 0 or (year % 4 == 0 and year % 100 != 0):
+            return 29
+        return 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+
+
+def firmware_parse_utc_timestamp(value):
+    if len(value) != 20:
+        return None
+    if (
+        value[4] != "-" or value[7] != "-" or value[10] != "T" or
+        value[13] != ":" or value[16] != ":" or value[19] != "Z"
+    ):
+        return None
+
+    numeric_slices = (
+        value[0:2], value[2:4], value[5:7], value[8:10],
+        value[11:13], value[14:16], value[17:19],
+    )
+    if any(not part.isdigit() for part in numeric_slices):
+        return None
+
+    year = int(value[0:2]) * 100 + int(value[2:4])
+    month = int(value[5:7])
+    date = int(value[8:10])
+    hour = int(value[11:13])
+    minute = int(value[14:16])
+    second = int(value[17:19])
+    if year < 2024 or month < 1 or month > 12:
+        return None
+    if date < 1 or date > firmware_rtc_days_in_month(year, month):
+        return None
+    if hour > 23 or minute > 59 or second > 59:
+        return None
+    return {
+        "year": year,
+        "month": month,
+        "date": date,
+        "hour": hour,
+        "minute": minute,
+        "second": second,
+        "weekDay": 0,
+    }
+
+
 class PendingReviewQueue:
     def __init__(self):
         self.items = []
@@ -649,6 +709,31 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("RTC set skipped: invalid generated_at", set_body)
         self.assertIn("logRtcNow()", setup_body)
         self.assertIn("setRtcFromGeneratedAt(serverGeneratedAt)", fetch_body)
+
+    def test_stage5a_rtc_timestamp_parser_rejects_impossible_calendar_dates(self):
+        self.assertEqual(
+            firmware_parse_utc_timestamp("2026-05-24T09:30:00Z"),
+            {
+                "year": 2026,
+                "month": 5,
+                "date": 24,
+                "hour": 9,
+                "minute": 30,
+                "second": 0,
+                "weekDay": 0,
+            },
+        )
+        self.assertIsNone(firmware_parse_utc_timestamp("2026-02-31T10:00:00Z"))
+        self.assertIsNone(firmware_parse_utc_timestamp("2026-04-31T10:00:00Z"))
+        self.assertIsNone(firmware_parse_utc_timestamp("2025-02-29T10:00:00Z"))
+        self.assertEqual(
+            firmware_parse_utc_timestamp("2024-02-29T10:00:00Z")["date"],
+            29,
+        )
+        self.assertIsNone(firmware_parse_utc_timestamp("2026-05-24T24:30:00Z"))
+        self.assertIsNone(firmware_parse_utc_timestamp("2026-05-24T09:60:00Z"))
+        self.assertIsNone(firmware_parse_utc_timestamp("2026-05-24T09:30:60Z"))
+        self.assertIsNone(firmware_parse_utc_timestamp("2026-05-24T09:30:00"))
 
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()

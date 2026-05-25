@@ -980,10 +980,36 @@ int twoDigitsAt(const String& value, int index) {
   return (value[index] - '0') * 10 + (value[index + 1] - '0');
 }
 
+bool isLeapYear(uint16_t year) {
+  return year % 400 == 0 || (year % 4 == 0 && year % 100 != 0);
+}
+
+uint8_t daysInMonth(uint16_t year, uint8_t month) {
+  switch (month) {
+    case 2:
+      return isLeapYear(year) ? 29 : 28;
+    case 4:
+    case 6:
+    case 9:
+    case 11:
+      return 30;
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 8:
+    case 10:
+    case 12:
+      return 31;
+  }
+  return 0;
+}
+
 bool isValidRtcTimestamp(const RtcTimestamp& timestamp) {
   return timestamp.year >= 2024 &&
          timestamp.month >= 1 && timestamp.month <= 12 &&
-         timestamp.date >= 1 && timestamp.date <= 31 &&
+         timestamp.date >= 1 &&
+         timestamp.date <= daysInMonth(timestamp.year, timestamp.month) &&
          timestamp.hour <= 23 &&
          timestamp.minute <= 59 &&
          timestamp.second <= 59;
