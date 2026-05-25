@@ -686,3 +686,23 @@
 
 注意：
 - RTC 可以解决“断网但设备仍有当前日期时间”的问题，但不能替代 PC/backend 的完整排期数据。设备端仍需要本地保存 due date、状态和待上传 review 队列。
+
+## 2026-05-25 Stage 5A: RTC calibration
+
+完成内容：
+
+- 使用 PC 后端 `/api/device/tasks` 返回的 `generated_at` 校准 M5Stick C Plus BM8563 RTC。
+- 开机时读取 RTC 并打印 `RTC now=... valid=1` 或 `RTC now=invalid valid=0`。
+- 同步成功后打印 `RTC set=...`，并立即读回当前 RTC 状态。
+- 本阶段不改变复习调度逻辑，也不实现离线 due-card 选择。
+
+测试结果：
+
+- RTC 固件源码测试已通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage5a_firmware_sets_and_logs_bm8563_rtc_from_generated_at -v`
+- 固件源码测试已通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+
+下一步：
+
+- 上传固件到真机，执行 RTC 断电保持验证：启动后端并让设备完成 Wi-Fi boot，确认串口出现 `RTC set=...` 和 `RTC now=... valid=1`；关机等待 1 到 2 分钟后再开机，确认 `RTC now=... valid=1` 的时间继续向前走。

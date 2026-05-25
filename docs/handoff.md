@@ -14,6 +14,7 @@ Completed milestones:
 - Stage 3C-1 left/right landscape auto-rotation, validated on the real device.
 - Stage 3C-2 rating-page double-shake `good`, validated on the real device.
 - Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, device setup portal, and captive portal setup assist.
+- Stage 5A RTC calibration from backend sync time.
 
 ## How To Run The PC Backend
 
@@ -148,6 +149,8 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - enters setup mode when Button B is held at boot or when no runtime config exists
   - connects to 2.4 GHz Wi-Fi using runtime config, with `secrets.h` kept as a developer fallback
   - fetches due cards from the PC backend at boot
+  - sets the BM8563 RTC from the backend `generated_at` timestamp after successful sync
+  - logs RTC status at boot and after calibration with `RTC now=... valid=1` or `RTC now=invalid valid=0`
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
   - loads cached due cards when Wi-Fi or sync fails
@@ -163,7 +166,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Windows firewall may block inbound access to port 8000 until allowed.
 - Firmware sync currently uses plain HTTP without authentication.
 - Firmware cached-task fallback only reuses the last synced due-card batch. It does not compute future due cards offline.
-- M5StickC Plus has a BM8563 RTC, but the current firmware does not set or use it yet. Until RTC sync is implemented, it still needs Wi-Fi sync to learn which future cards are due.
+- Firmware now sets and logs the M5StickC Plus BM8563 RTC from backend sync time, but it does not yet use RTC time for offline due-card scheduling.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
@@ -188,6 +191,15 @@ On the real M5Stick C Plus, Stage 4 was validated with these serial-log signals:
 - After an offline review and reboot, firmware logged `Loaded pending reviews=1`, proving the pending queue survived power loss/restart.
 - After the backend became reachable again, firmware posted to `/api/device/reviews` and received `{"accepted": 1, "skipped_duplicate": 0, "failed": 0, "errors": []}`.
 - On the next reboot, firmware logged `Loaded pending reviews=0`, proving the uploaded pending review was cleared.
+
+Stage 5A RTC validation procedure:
+
+1. Start the PC backend.
+2. Boot M5Stick with Wi-Fi available.
+3. Confirm serial shows `RTC set=...` and `RTC now=... valid=1`.
+4. Power off M5Stick.
+5. Wait 1 to 2 minutes.
+6. Boot again and confirm `RTC now=... valid=1` moved forward.
 
 ## Next Stage
 
