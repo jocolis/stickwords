@@ -1,4 +1,5 @@
 #include <HTTPClient.h>
+#include <DNSServer.h>
 #include <M5StickCPlus.h>
 #include <Preferences.h>
 #include <WebServer.h>
@@ -92,6 +93,7 @@ DeviceCard syncedCards[kMaxSyncedCards] = {};
 PendingReview pendingReviews[kMaxPendingReviews] = {};
 Preferences storage;
 RuntimeConfig runtimeConfig;
+DNSServer dnsServer;
 WebServer setupServer(80);
 size_t syncedCardCount = 0;
 size_t pendingReviewCount = 0;
@@ -718,6 +720,11 @@ void handleSetupRoot() {
   setupServer.send(200, "text/html", setupPageHtml());
 }
 
+void handleCaptivePortal() {
+  setupServer.sendHeader("Location", "http://192.168.4.1/", true);
+  setupServer.send(302, "text/plain", "");
+}
+
 void handleSetupSave() {
   RuntimeConfig submitted = {};
   String ssid = setupServer.arg("ssid");
@@ -757,8 +764,15 @@ void startSetupPortal() {
   }
 
   setupPortalActive = true;
+  dnsServer.start(53, "*", WiFi.softAPIP());
   setupServer.on("/", HTTP_GET, handleSetupRoot);
   setupServer.on("/save", HTTP_POST, handleSetupSave);
+  setupServer.on("/generate_204", HTTP_GET, handleCaptivePortal);
+  setupServer.on("/gen_204", HTTP_GET, handleCaptivePortal);
+  setupServer.on("/hotspot-detect.html", HTTP_GET, handleCaptivePortal);
+  setupServer.on("/library/test/success.html", HTTP_GET, handleCaptivePortal);
+  setupServer.on("/fwlink", HTTP_GET, handleCaptivePortal);
+  setupServer.onNotFound(handleCaptivePortal);
   setupServer.begin();
   Serial.print("Setup portal ip=");
   Serial.println(WiFi.softAPIP());
@@ -767,6 +781,7 @@ void startSetupPortal() {
 }
 
 void handleSetupPortalLoop() {
+  dnsServer.processNextRequest();
   setupServer.handleClient();
 }
 

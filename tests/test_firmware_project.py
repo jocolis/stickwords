@@ -533,6 +533,27 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("handleSetupPortalLoop()", loop_body)
         self.assertNotIn("handleSetupPortalClient", source)
 
+    def test_stage4_setup_portal_uses_captive_dns_redirects(self):
+        source = firmware_source()
+        portal_body = firmware_function_body(source, "startSetupPortal")
+        loop_body = firmware_function_body(source, "handleSetupPortalLoop")
+        captive_body = firmware_function_body(source, "handleCaptivePortal")
+
+        self.assertIn("#include <DNSServer.h>", source)
+        self.assertIn("DNSServer dnsServer", source)
+        self.assertIn("dnsServer.start(53", portal_body)
+        self.assertIn('"*"', portal_body)
+        self.assertIn("WiFi.softAPIP()", portal_body)
+        self.assertIn('setupServer.on("/generate_204"', source)
+        self.assertIn('setupServer.on("/gen_204"', source)
+        self.assertIn('setupServer.on("/hotspot-detect.html"', source)
+        self.assertIn('setupServer.on("/fwlink"', source)
+        self.assertIn("setupServer.onNotFound(handleCaptivePortal)", portal_body)
+        self.assertIn("dnsServer.processNextRequest()", loop_body)
+        self.assertIn('setupServer.sendHeader("Location"', captive_body)
+        self.assertIn("http://192.168.4.1/", captive_body)
+        self.assertIn("setupServer.send(302", captive_body)
+
     def test_stage4_firmware_persists_cached_tasks_and_pending_reviews(self):
         source = firmware_source()
         setup_body = firmware_function_body(source, "setup")

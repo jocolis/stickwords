@@ -658,3 +658,20 @@
 下一步：
 
 - 上传到真机，按住 Button B 重启，验证配置页保存后能重启并同步。
+
+## 2026-05-25 Stage 4 polish: setup captive portal
+
+完成内容：
+- 在 M5Stick setup mode 中加入 ESP32 `DNSServer`。
+- setup AP 启动后把任意域名 DNS 请求解析到 `192.168.4.1`。
+- 为 `/generate_204`、`/gen_204`、`/hotspot-detect.html`、`/library/test/success.html`、`/fwlink` 等常见手机 captive-portal 探测路径增加 302 跳转。
+- setup loop 同时处理 DNS 请求和 HTTP 请求。
+- 文档改为：手机多数情况下会自动弹出配置页；如果没有自动弹出，仍可手动打开 `http://192.168.4.1`。
+
+测试结果：
+- 先写入失败测试，确认旧固件没有 `handleCaptivePortal`。
+- Captive portal 固件源码测试通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage4_setup_portal_uses_captive_dns_redirects -v`
+
+注意：
+- 自动弹出配置页依赖手机系统的 captive-portal 行为，不是强保证；手动访问 `http://192.168.4.1` 仍是稳定兜底路径。

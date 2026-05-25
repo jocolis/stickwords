@@ -37,7 +37,7 @@ The normal path is the M5Stick setup portal:
 1. Upload firmware once.
 2. Hold Button B while rebooting the M5Stick.
 3. Connect a PC or phone to the `StickWords-Setup` Wi-Fi network.
-4. Open `http://192.168.4.1`.
+4. Most phones should automatically open the setup/login page. If not, open `http://192.168.4.1` manually.
 5. Enter the 2.4 GHz Wi-Fi SSID, password, and StickWords server URL shown on the PC admin page.
 6. Save and wait for the M5Stick to restart.
 
@@ -144,6 +144,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware HTTP sync:
   - stores Wi-Fi and server URL settings in ESP32 flash
   - provides a `StickWords-Setup` temporary hotspot and `http://192.168.4.1` setup page
+  - uses captive DNS and common phone captive-portal probe redirects during setup mode
   - enters setup mode when Button B is held at boot or when no runtime config exists
   - connects to 2.4 GHz Wi-Fi using runtime config, with `secrets.h` kept as a developer fallback
   - fetches due cards from the PC backend at boot
@@ -165,7 +166,8 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - The M5Stick has no reliable real-time clock in the current design, so it still needs Wi-Fi sync to learn which future cards are due.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
-- Setup portal has no password and no captive-DNS redirect; only enable it intentionally by holding Button B or when no config exists.
+- Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
+- Captive portal auto-open is best-effort and depends on phone OS/browser behavior. If it does not pop up automatically, open `http://192.168.4.1` manually.
 - No multi-deck support yet.
 - Quick Add requires PC-side Python/Tkinter and does not run on the M5Stick itself.
 - DeepSeek generation requires `DEEPSEEK_API_KEY`; without it, the helper is manual-entry only.
