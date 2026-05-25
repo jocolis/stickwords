@@ -634,3 +634,27 @@
 - 离线评分并重启后，固件日志显示 `Loaded pending reviews=1`，说明待上传评分已从 flash 恢复。
 - PC 后端恢复可达后，固件成功 POST 到 `/api/device/reviews`，收到 `{"accepted": 1, "skipped_duplicate": 0, "failed": 0, "errors": []}`。
 - 再次重启后，固件日志显示 `Loaded pending reviews=0`，说明补传成功后本地 pending 队列已清空。
+
+## 2026-05-25 Stage 4 polish: M5Stick setup portal
+
+完成内容：
+
+- 增加 Button B 开机进入配置模式。
+- 增加 `StickWords-Setup` 临时热点和 `http://192.168.4.1` 配置页。
+- 将 Wi-Fi SSID、密码和 PC 后端 URL 保存到 ESP32 flash。
+- 正常启动优先使用运行时配置，不再需要日常编辑 `secrets.h`。
+- 没有运行时配置时自动进入配置模式。
+- 配置页不会把已保存 Wi-Fi 密码回填到 HTML；重新配置时密码留空会保留原密码。
+- 配置页会转义 HTML 属性中的单引号，避免保存值破坏页面结构。
+
+测试结果：
+
+- 先写入失败测试，确认旧固件没有 `WebServer`、运行时配置、setup AP 和 Button B 配置入口。
+- 固件源码测试通过 19 个测试：
+  `$env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+下一步：
+
+- 上传到真机，按住 Button B 重启，验证配置页保存后能重启并同步。

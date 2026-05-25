@@ -1,6 +1,7 @@
 #include <HTTPClient.h>
 #include <M5StickCPlus.h>
 #include <Preferences.h>
+#include <WebServer.h>
 #include <WiFi.h>
 #include <cmath>
 #include <cstring>
@@ -47,6 +48,9 @@ constexpr size_t kMaxWordLength = 32;
 constexpr size_t kMaxMeaningLength = 192;
 constexpr size_t kMaxExampleLength = 256;
 constexpr size_t kMaxTimestampLength = 25;
+constexpr size_t kMaxSsidLength = 33;
+constexpr size_t kMaxPasswordLength = 65;
+constexpr size_t kMaxServerUrlLength = 96;
 constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kShakeWindowMs = 650;
@@ -76,15 +80,25 @@ struct PendingReview {
   bool uploaded;
 };
 
+struct RuntimeConfig {
+  char ssid[kMaxSsidLength];
+  char password[kMaxPasswordLength];
+  char serverUrl[kMaxServerUrlLength];
+  bool valid;
+};
+
 ReviewResult reviewResults[kMaxSyncedCards] = {};
 DeviceCard syncedCards[kMaxSyncedCards] = {};
 PendingReview pendingReviews[kMaxPendingReviews] = {};
 Preferences storage;
+RuntimeConfig runtimeConfig;
+WebServer setupServer(80);
 size_t syncedCardCount = 0;
 size_t pendingReviewCount = 0;
 char serverGeneratedAt[kMaxTimestampLength] = "";
 char statusLine1[32] = "Sync...";
 char statusLine2[32] = "";
+char statusLine3[32] = "";
 uint32_t tasksFetchedAtMs = 0;
 uint32_t reviewBootNonce = 0;
 uint32_t reviewSequence = 0;
@@ -106,6 +120,7 @@ int lastSubmittedIndex = -1;
 int returnAfterReRatingIndex = -1;
 bool isReRating = false;
 bool needsRender = true;
+bool setupPortalActive = false;
 
 const char* ratingName(Rating rating) {
   switch (rating) {
@@ -343,10 +358,58 @@ void copyStatusLine(char* dest, size_t destSize, const char* source) {
   dest[destSize - 1] = '\0';
 }
 
-void setStatusPage(const char* line1, const char* line2 = "") {
+void setStatusPage(const char* line1, const char* line2 = "", const char* line3 = "") {
   copyStatusLine(statusLine1, sizeof(statusLine1), line1);
   copyStatusLine(statusLine2, sizeof(statusLine2), line2);
+  copyStatusLine(statusLine3, sizeof(statusLine3), line3);
   setPage(Page::Status);
+}
+
+void copyBounded(char* dest, size_t destSize, const String& value);
+
+String normalizeServerUrl(const String& server) {
+  String normalized = server;
+  normalized.trim();
+  while (normalized.endsWith("/") && std::strcmp(normalized.c_str(), "http://") != 0) {
+    normalized.remove(normalized.length() - 1);
+  }
+  return normalized;
+}
+
+bool validateRuntimeConfig(const RuntimeConfig& config) {
+  String ssid = String(config.ssid);
+  ssid.trim();
+  return ssid.length() > 0 &&
+         std::strncmp(config.serverUrl, "http://", std::strlen("http://")) == 0 &&
+         std::strlen(config.serverUrl) > std::strlen("http://");
+}
+
+bool loadRuntimeConfig() {
+  storage.begin("stickwords", true);
+  copyBounded(runtimeConfig.ssid, sizeof(runtimeConfig.ssid), storage.getString("cfg_ssid", ""));
+  copyBounded(runtimeConfig.password, sizeof(runtimeConfig.password), storage.getString("cfg_pass", ""));
+  copyBounded(
+      runtimeConfig.serverUrl,
+      sizeof(runtimeConfig.serverUrl),
+      normalizeServerUrl(storage.getString("cfg_server", "")));
+  storage.end();
+  runtimeConfig.valid = validateRuntimeConfig(runtimeConfig);
+  return runtimeConfig.valid;
+}
+
+void saveRuntimeConfig(const RuntimeConfig& config) {
+  storage.begin("stickwords", false);
+  storage.putString("cfg_ssid", config.ssid);
+  storage.putString("cfg_pass", config.password);
+  storage.putString("cfg_server", config.serverUrl);
+  storage.end();
+}
+
+String runtimeServerUrl() {
+  if (runtimeConfig.valid && validateRuntimeConfig(runtimeConfig)) {
+    return String(runtimeConfig.serverUrl);
+  }
+  return normalizeServerUrl(String(STICKWORDS_SERVER_URL));
 }
 
 void drawStatusPage() {
@@ -355,6 +418,9 @@ void drawStatusPage() {
   M5.Lcd.println(statusLine1);
   if (statusLine2[0] != '\0') {
     M5.Lcd.println(statusLine2);
+  }
+  if (statusLine3[0] != '\0') {
+    M5.Lcd.println(statusLine3);
   }
 }
 
@@ -496,8 +562,6 @@ void render() {
   }
 }
 
-void copyBounded(char* dest, size_t destSize, const String& value);
-
 Rating nextRating(Rating rating) {
   switch (rating) {
     case Rating::Forgot:
@@ -598,7 +662,7 @@ void clearPendingReviews() {
   storage.end();
 }
 
-void drawStatusMessage(const char* line1, const char* line2 = "") {
+void drawStatusMessage(const char* line1, const char* line2 = "", const char* line3 = "") {
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setCursor(8, 36);
   M5.Lcd.setTextColor(WHITE, BLACK);
@@ -607,12 +671,109 @@ void drawStatusMessage(const char* line1, const char* line2 = "") {
   if (line2[0] != '\0') {
     M5.Lcd.println(line2);
   }
+  if (line3[0] != '\0') {
+    M5.Lcd.println(line3);
+  }
+}
+
+String htmlEscape(const String& value) {
+  String escaped = "";
+  for (int i = 0; i < value.length(); ++i) {
+    const char current = value[i];
+    if (current == '&') {
+      escaped += "&amp;";
+    } else if (current == '<') {
+      escaped += "&lt;";
+    } else if (current == '>') {
+      escaped += "&gt;";
+    } else if (current == '"') {
+      escaped += "&quot;";
+    } else if (current == '\'') {
+      escaped += "&#39;";
+    } else {
+      escaped += current;
+    }
+  }
+  return escaped;
+}
+
+String setupPageHtml(const String& message = "") {
+  String body = "<!doctype html><html><head><meta name='viewport' "
+                "content='width=device-width,initial-scale=1'><title>StickWords Setup</title>"
+                "</head><body><h1>StickWords Setup</h1><form method='post' action='/save'>";
+  if (message.length() > 0) {
+    body += "<p>";
+    body += htmlEscape(message);
+    body += "</p>";
+  }
+  body += "<label>SSID <input name='ssid' value='" + htmlEscape(String(runtimeConfig.ssid)) + "'></label><br>";
+  body += "<label>Password <input name='password' type='password' ";
+  body += "placeholder='leave blank to keep current password'></label><br>";
+  body += "<label>Server <input name='server' value='" + htmlEscape(String(runtimeConfig.serverUrl)) + "'></label><br>";
+  body += "<button type='submit'>Save</button></form></body></html>";
+  return body;
+}
+
+void handleSetupRoot() {
+  setupServer.send(200, "text/html", setupPageHtml());
+}
+
+void handleSetupSave() {
+  RuntimeConfig submitted = {};
+  String ssid = setupServer.arg("ssid");
+  ssid.trim();
+  copyBounded(submitted.ssid, sizeof(submitted.ssid), ssid);
+  copyBounded(submitted.password, sizeof(submitted.password), setupServer.arg("password"));
+  if (submitted.password[0] == '\0' && runtimeConfig.valid) {
+    copyBounded(submitted.password, sizeof(submitted.password), String(runtimeConfig.password));
+  }
+  copyBounded(
+      submitted.serverUrl,
+      sizeof(submitted.serverUrl),
+      normalizeServerUrl(setupServer.arg("server")));
+  submitted.valid = validateRuntimeConfig(submitted);
+
+  if (!submitted.valid) {
+    setupServer.send(400, "text/html",
+                     setupPageHtml("SSID is required and server URL must start with http://"));
+    return;
+  }
+
+  runtimeConfig = submitted;
+  saveRuntimeConfig(runtimeConfig);
+  drawStatusMessage("Saved", "restarting");
+  setupServer.send(200, "text/html", setupPageHtml("Saved, restarting"));
+  delay(300);
+  ESP.restart();
+}
+
+void startSetupPortal() {
+  WiFi.mode(WIFI_AP);
+  if (!WiFi.softAP("StickWords-Setup")) {
+    Serial.println("Setup portal AP failed");
+    setStatusPage("Setup failed", "check serial");
+    drawStatusMessage("Setup failed", "check serial");
+    return;
+  }
+
+  setupPortalActive = true;
+  setupServer.on("/", HTTP_GET, handleSetupRoot);
+  setupServer.on("/save", HTTP_POST, handleSetupSave);
+  setupServer.begin();
+  Serial.print("Setup portal ip=");
+  Serial.println(WiFi.softAPIP());
+  setStatusPage("Setup mode", "WiFi: StickWords-Setup", "Open: 192.168.4.1");
+  drawStatusMessage("Setup mode", "WiFi: StickWords-Setup", "Open: 192.168.4.1");
+}
+
+void handleSetupPortalLoop() {
+  setupServer.handleClient();
 }
 
 bool connectWifi() {
   drawStatusMessage("WiFi...");
   WiFi.mode(WIFI_STA);
-  WiFi.begin(STICKWORDS_WIFI_SSID, STICKWORDS_WIFI_PASSWORD);
+  WiFi.begin(runtimeConfig.ssid, runtimeConfig.password);
 
   const uint32_t startedAt = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - startedAt < 12000) {
@@ -787,7 +948,7 @@ bool parseDeviceTasksJson(const String& body) {
 bool fetchDeviceTasks() {
   drawStatusMessage("Sync...");
   HTTPClient http;
-  const String url = String(STICKWORDS_SERVER_URL) + "/api/device/tasks?limit=20";
+  const String url = runtimeServerUrl() + "/api/device/tasks?limit=20";
   Serial.println("GET " + url);
   http.begin(url);
   const int status = http.GET();
@@ -983,7 +1144,7 @@ bool uploadPendingReviews() {
   }
 
   HTTPClient http;
-  const String url = String(STICKWORDS_SERVER_URL) + "/api/device/reviews";
+  const String url = runtimeServerUrl() + "/api/device/reviews";
   const String body = buildPendingReviewsJson();
   Serial.println("POST " + url);
   http.begin(url);
@@ -1215,6 +1376,16 @@ void setup() {
   Serial.println("StickWords Stage 4 boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
+  M5.update();
+  const bool forceSetup = M5.BtnB.isPressed();
+  if (!loadRuntimeConfig() || forceSetup) {
+    Serial.println(forceSetup ? "Setup portal forced" : "Setup portal missing config");
+    startSetupPortal();
+    logPage();
+    render();
+    return;
+  }
+
   loadPendingReviews();
   if (connectWifi()) {
     uploadPendingReviews();
@@ -1228,6 +1399,13 @@ void setup() {
 
 void loop() {
   M5.update();
+  if (setupPortalActive) {
+    handleSetupPortalLoop();
+    render();
+    delay(20);
+    return;
+  }
+
   const uint32_t now = millis();
   readImu();
   updateAutoRotation(now);

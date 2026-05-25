@@ -13,7 +13,7 @@ Completed milestones:
 - Stage 3B local review UI prototype.
 - Stage 3C-1 left/right landscape auto-rotation, validated on the real device.
 - Stage 3C-2 rating-page double-shake `good`, validated on the real device.
-- Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, and pending-review recovery.
+- Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, and device setup portal.
 
 ## How To Run The PC Backend
 
@@ -30,26 +30,28 @@ The launcher stops any existing process listening on port `8000`, then starts th
 The admin page displays the suggested `STICKWORDS_SERVER_URL` for the M5Stick.
 When opened from `localhost`, the server tries to show a LAN IPv4 URL such as `http://192.168.x.x:8000` instead of `localhost`.
 
-## How To Configure Firmware Sync
+## How To Configure M5Stick Wi-Fi And Server URL
 
-Create a private local secrets file from the committed template:
+The normal path is the M5Stick setup portal:
 
-```powershell
-cd C:\Users\ASUS\Documents\M5Stick\firmware
-Copy-Item include\secrets.example.h include\secrets.h
+1. Upload firmware once.
+2. Hold Button B while rebooting the M5Stick.
+3. Connect a PC or phone to the `StickWords-Setup` Wi-Fi network.
+4. Open `http://192.168.4.1`.
+5. Enter the 2.4 GHz Wi-Fi SSID, password, and StickWords server URL shown on the PC admin page.
+6. Save and wait for the M5Stick to restart.
+
+The setup screen shows:
+
+```text
+Setup mode
+WiFi: StickWords-Setup
+Open: 192.168.4.1
 ```
 
-Edit `firmware\include\secrets.h`:
+The admin page displays the suggested StickWords server URL. Use the PC's LAN IPv4 address, not `localhost`, because `localhost` on the M5Stick means the M5Stick itself.
 
-```cpp
-#define STICKWORDS_WIFI_SSID "your-2.4ghz-wifi-name"
-#define STICKWORDS_WIFI_PASSWORD "your-wifi-password"
-#define STICKWORDS_SERVER_URL "http://192.168.x.x:8000"
-```
-
-Use the PC's LAN IPv4 address in `STICKWORDS_SERVER_URL`, not `localhost`, because `localhost` on the M5Stick means the M5Stick itself.
-
-`firmware\include\secrets.h` is intentionally ignored by Git. Do not commit real Wi-Fi credentials.
+`firmware\include\secrets.h` remains a developer fallback and must not contain committed real credentials.
 
 ## How To Build, Upload, And Monitor Firmware
 
@@ -73,7 +75,7 @@ cd C:\Users\ASUS\Documents\M5Stick
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Expected result: all 83 tests pass.
+Expected result: all 84 tests pass.
 
 Firmware build:
 
@@ -140,7 +142,10 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - left/right landscape auto-rotation using IMU readings
   - rating-page double-shake submits `good`
 - Firmware HTTP sync:
-  - connects to 2.4 GHz Wi-Fi using `secrets.h`
+  - stores Wi-Fi and server URL settings in ESP32 flash
+  - provides a `StickWords-Setup` temporary hotspot and `http://192.168.4.1` setup page
+  - enters setup mode when Button B is held at boot or when no runtime config exists
+  - connects to 2.4 GHz Wi-Fi using runtime config, with `secrets.h` kept as a developer fallback
   - fetches due cards from the PC backend at boot
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
@@ -152,7 +157,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 
 ## Known Limits
 
-- Stage 4 uses a manually configured LAN URL; there is no automatic PC discovery yet.
+- Stage 4 uses a manually configured LAN URL through the setup portal; there is no automatic PC discovery yet.
 - The M5Stick must be on the same reachable LAN as the PC backend.
 - Windows firewall may block inbound access to port 8000 until allowed.
 - Firmware sync currently uses plain HTTP without authentication.
@@ -160,7 +165,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - The M5Stick has no reliable real-time clock in the current design, so it still needs Wi-Fi sync to learn which future cards are due.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
-- No USB configuration UI yet.
+- Setup portal has no password and no captive-DNS redirect; only enable it intentionally by holding Button B or when no config exists.
 - No multi-deck support yet.
 - Quick Add requires PC-side Python/Tkinter and does not run on the M5Stick itself.
 - DeepSeek generation requires `DEEPSEEK_API_KEY`; without it, the helper is manual-entry only.
