@@ -257,6 +257,24 @@ def firmware_parse_utc_timestamp(value):
     }
 
 
+def firmware_clock_display_timestamp(timestamp):
+    display = dict(timestamp)
+    display["hour"] += 8
+    while display["hour"] >= 24:
+        display["hour"] -= 24
+        display["date"] += 1
+        month_days = firmware_rtc_days_in_month(display["year"], display["month"])
+        if display["date"] <= month_days:
+            continue
+        display["date"] = 1
+        display["month"] += 1
+        if display["month"] <= 12:
+            continue
+        display["month"] = 1
+        display["year"] += 1
+    return display
+
+
 class PendingReviewQueue:
     def __init__(self):
         self.items = []
@@ -742,6 +760,7 @@ class FirmwareProjectTests(unittest.TestCase):
         short_press_body = firmware_function_body(source, "handleButtonAShortPress")
         loop_body = firmware_function_body(source, "loop")
         draw_clock_body = firmware_function_body(source, "drawClockPage")
+        local_body = firmware_function_body(source, "toClockDisplayTimestamp")
         show_clock_body = firmware_function_body(source, "showClockPage")
         update_clock_body = firmware_function_body(source, "updateClockPage")
 
@@ -751,6 +770,8 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("drawClockPage()", source)
         self.assertIn("showClockPage()", source)
         self.assertIn("updateClockPage(now)", source)
+        self.assertIn("constexpr uint8_t kClockDisplayUtcOffsetHours = 8", source)
+        self.assertIn("toClockDisplayTimestamp(", source)
         self.assertIn("case Page::Clock", render_body)
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("case Page::Clock", short_press_body)
@@ -764,8 +785,34 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("updateClockPage(now)", loop_body)
         self.assertIn("RTC invalid", draw_clock_body)
         self.assertIn("Sync needed", draw_clock_body)
+        self.assertIn("toClockDisplayTimestamp(timestamp)", draw_clock_body)
+        self.assertIn("kClockDisplayUtcOffsetHours", local_body)
+        self.assertIn("while (display.hour >= 24)", local_body)
+        self.assertIn("daysInMonth(display.year, display.month)", local_body)
         self.assertIn("%04u-%02u-%02u", source)
         self.assertIn("%02u:%02u:%02u", source)
+
+    def test_stage5b_clock_display_uses_utc_plus_8_without_changing_rtc_parse(self):
+        evening = firmware_parse_utc_timestamp("2026-05-24T20:30:00Z")
+        self.assertEqual(
+            firmware_clock_display_timestamp(evening),
+            {
+                "year": 2026,
+                "month": 5,
+                "date": 25,
+                "hour": 4,
+                "minute": 30,
+                "second": 0,
+                "weekDay": 0,
+            },
+        )
+        month_end = firmware_parse_utc_timestamp("2026-04-30T18:00:00Z")
+        self.assertEqual(firmware_clock_display_timestamp(month_end)["month"], 5)
+        self.assertEqual(firmware_clock_display_timestamp(month_end)["date"], 1)
+        year_end = firmware_parse_utc_timestamp("2026-12-31T20:00:00Z")
+        self.assertEqual(firmware_clock_display_timestamp(year_end)["year"], 2027)
+        self.assertEqual(firmware_clock_display_timestamp(year_end)["month"], 1)
+        self.assertEqual(firmware_clock_display_timestamp(year_end)["date"], 1)
 
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()

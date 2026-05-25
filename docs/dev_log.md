@@ -502,6 +502,21 @@
 - PlatformIO 固件编译通过：
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
 
+## 2026-05-25 Stage 5A polish: UTC+8 clock display
+
+完成内容：
+- 保持 BM8563 RTC 内部按后端 `generated_at` 写入 UTC。
+- 时间页显示层转换为 UTC+8，解决屏幕时间比北京时间慢 8 小时的问题。
+- 覆盖 UTC 晚间跨到北京时间第二天、月底跨月、年底跨年的显示转换测试。
+
+测试结果：
+- UTC+8 显示转换测试通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage5b_clock_display_uses_utc_plus_8_without_changing_rtc_parse -v`
+- 固件源码测试通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
 遇到的问题与决策：
 
 - Codex shell 一开始找不到 `pio`，后来确认实际路径是 `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe`。

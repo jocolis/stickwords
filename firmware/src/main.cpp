@@ -58,6 +58,7 @@ constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kShakeWindowMs = 650;
 constexpr uint32_t kShakeCooldownMs = 900;
+constexpr uint8_t kClockDisplayUtcOffsetHours = 8;
 constexpr uint8_t kContentTextSize = 2;
 constexpr int16_t kContentX = 6;
 constexpr int16_t kContentY = 6;
@@ -386,6 +387,7 @@ void setStatusPage(const char* line1, const char* line2 = "", const char* line3 
 void copyBounded(char* dest, size_t destSize, const String& value);
 RtcTimestamp readRtcTimestamp();
 bool isValidRtcTimestamp(const RtcTimestamp& timestamp);
+RtcTimestamp toClockDisplayTimestamp(const RtcTimestamp& timestamp);
 String formatRtcDate(const RtcTimestamp& timestamp);
 String formatRtcTime(const RtcTimestamp& timestamp);
 
@@ -454,8 +456,9 @@ void drawClockPage() {
     return;
   }
 
-  const String date = formatRtcDate(timestamp);
-  const String time = formatRtcTime(timestamp);
+  const RtcTimestamp displayTimestamp = toClockDisplayTimestamp(timestamp);
+  const String date = formatRtcDate(displayTimestamp);
+  const String time = formatRtcTime(displayTimestamp);
   drawCenteredText(date.c_str(), 30, 2);
   drawCenteredText(time.c_str(), 66, 3);
 }
@@ -1066,6 +1069,27 @@ bool parseUtcTimestamp(const String& value, RtcTimestamp* timestamp) {
   timestamp->second = static_cast<uint8_t>(second);
   timestamp->weekDay = 0;
   return isValidRtcTimestamp(*timestamp);
+}
+
+RtcTimestamp toClockDisplayTimestamp(const RtcTimestamp& timestamp) {
+  RtcTimestamp display = timestamp;
+  display.hour += kClockDisplayUtcOffsetHours;
+  while (display.hour >= 24) {
+    display.hour -= 24;
+    display.date += 1;
+    const uint8_t monthDays = daysInMonth(display.year, display.month);
+    if (display.date <= monthDays) {
+      continue;
+    }
+    display.date = 1;
+    display.month += 1;
+    if (display.month <= 12) {
+      continue;
+    }
+    display.month = 1;
+    display.year += 1;
+  }
+  return display;
 }
 
 String formatRtcTimestamp(const RtcTimestamp& timestamp) {
