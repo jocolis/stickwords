@@ -706,3 +706,22 @@
 下一步：
 
 - 上传固件到真机，执行 RTC 断电保持验证：启动后端并让设备完成 Wi-Fi boot，确认串口出现 `RTC set=...` 和 `RTC now=... valid=1`；关机等待 1 到 2 分钟后再开机，确认 `RTC now=... valid=1` 的时间继续向前走。
+
+## 2026-05-25 Stage 5A polish: boot clock page
+
+完成内容：
+- 新增 M5Stick `Clock` 页面，正常启动后先显示 RTC 日期和时间。
+- RTC 有效时显示 `YYYY-MM-DD` 和 `HH:MM:SS`。
+- RTC 无效时显示 `RTC invalid / Sync needed`。
+- Button A 短按从时间页进入原来的背词或状态流程。
+- Button B 开机进入 setup mode 的逻辑保持不变；时间页内 Button B 暂不增加新功能。
+- 时间页每秒刷新一次，进入背词流程后不持续显示时间。
+
+测试结果：
+- 先写入失败测试，确认旧固件没有 `drawClockPage`。
+- Clock 页面固件源码测试通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage5b_boot_shows_clock_page_before_review_flow -v`
+- 固件源码测试通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`

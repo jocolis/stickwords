@@ -19,6 +19,7 @@ namespace {
 
 enum class Page {
   Status,
+  Clock,
   Word,
   Meaning,
   Example,
@@ -116,6 +117,7 @@ uint32_t tasksFetchedAtMs = 0;
 uint32_t reviewBootNonce = 0;
 uint32_t reviewSequence = 0;
 Page currentPage = Page::Word;
+Page clockExitPage = Page::Word;
 size_t currentCardIndex = 0;
 size_t contentPageStart = 0;
 uint8_t currentRotation = 1;
@@ -127,6 +129,7 @@ float accelZ = 0.0F;
 uint8_t shakeCount = 0;
 uint32_t shakeWindowStartedAt = 0;
 uint32_t lastShakeAt = 0;
+uint32_t lastClockRefreshAt = 0;
 bool shakeAboveThreshold = false;
 Rating selectedRating = Rating::Forgot;
 int lastSubmittedIndex = -1;
@@ -151,6 +154,8 @@ const char* pageName(Page page) {
   switch (page) {
     case Page::Status:
       return "status";
+    case Page::Clock:
+      return "clock";
     case Page::Word:
       return "word";
     case Page::Meaning:
@@ -379,6 +384,10 @@ void setStatusPage(const char* line1, const char* line2 = "", const char* line3 
 }
 
 void copyBounded(char* dest, size_t destSize, const String& value);
+RtcTimestamp readRtcTimestamp();
+bool isValidRtcTimestamp(const RtcTimestamp& timestamp);
+String formatRtcDate(const RtcTimestamp& timestamp);
+String formatRtcTime(const RtcTimestamp& timestamp);
 
 String normalizeServerUrl(const String& server) {
   String normalized = server;
@@ -435,6 +444,20 @@ void drawStatusPage() {
   if (statusLine3[0] != '\0') {
     M5.Lcd.println(statusLine3);
   }
+}
+
+void drawClockPage() {
+  const RtcTimestamp timestamp = readRtcTimestamp();
+  if (!isValidRtcTimestamp(timestamp)) {
+    drawCenteredText("RTC invalid", 38, 2);
+    drawCenteredText("Sync needed", 74, 2);
+    return;
+  }
+
+  const String date = formatRtcDate(timestamp);
+  const String time = formatRtcTime(timestamp);
+  drawCenteredText(date.c_str(), 30, 2);
+  drawCenteredText(time.c_str(), 66, 3);
 }
 
 void drawWordPage() {
@@ -556,6 +579,9 @@ void render() {
   switch (currentPage) {
     case Page::Status:
       drawStatusPage();
+      break;
+    case Page::Clock:
+      drawClockPage();
       break;
     case Page::Word:
       drawWordPage();
@@ -1057,6 +1083,30 @@ String formatRtcTimestamp(const RtcTimestamp& timestamp) {
   return String(buffer);
 }
 
+String formatRtcDate(const RtcTimestamp& timestamp) {
+  char buffer[11];
+  std::snprintf(
+      buffer,
+      sizeof(buffer),
+      "%04u-%02u-%02u",
+      static_cast<unsigned>(timestamp.year),
+      static_cast<unsigned>(timestamp.month),
+      static_cast<unsigned>(timestamp.date));
+  return String(buffer);
+}
+
+String formatRtcTime(const RtcTimestamp& timestamp) {
+  char buffer[9];
+  std::snprintf(
+      buffer,
+      sizeof(buffer),
+      "%02u:%02u:%02u",
+      static_cast<unsigned>(timestamp.hour),
+      static_cast<unsigned>(timestamp.minute),
+      static_cast<unsigned>(timestamp.second));
+  return String(buffer);
+}
+
 RtcTimestamp readRtcTimestamp() {
   RTC_TimeTypeDef time = {};
   RTC_DateTypeDef date = {};
@@ -1080,6 +1130,21 @@ void logRtcNow() {
     return;
   }
   Serial.println("RTC now=" + formatRtcTimestamp(timestamp) + " valid=1");
+}
+
+void showClockPage() {
+  if (currentPage != Page::Clock) {
+    clockExitPage = currentPage;
+  }
+  lastClockRefreshAt = 0;
+  setPage(Page::Clock);
+}
+
+void updateClockPage(uint32_t now) {
+  if (currentPage == Page::Clock && now - lastClockRefreshAt >= 1000) {
+    lastClockRefreshAt = now;
+    needsRender = true;
+  }
 }
 
 void setRtcFromGeneratedAt(const char* generatedAt) {
@@ -1448,6 +1513,9 @@ void handleButtonAShortPress() {
   switch (currentPage) {
     case Page::Status:
       break;
+    case Page::Clock:
+      setPage(clockExitPage);
+      break;
     case Page::Word:
       setContentPage(Page::Meaning, 0);
       break;
@@ -1491,6 +1559,8 @@ void handleButtonBShortPress() {
   const Card card = currentCard();
   switch (currentPage) {
     case Page::Status:
+      break;
+    case Page::Clock:
       break;
     case Page::Word:
       tryReRatePrevious();
@@ -1556,6 +1626,7 @@ void setup() {
   } else if (loadCachedTasks()) {
     Serial.println("Using cached tasks after WiFi failure");
   }
+  showClockPage();
   logPage();
   render();
 }
@@ -1572,6 +1643,7 @@ void loop() {
   const uint32_t now = millis();
   readImu();
   updateAutoRotation(now);
+  updateClockPage(now);
   updateShakeGood(now);
 
   if (M5.BtnA.wasReleasefor(kButtonLongPressMs)) {

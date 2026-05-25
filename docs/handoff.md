@@ -151,6 +151,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - fetches due cards from the PC backend at boot
   - sets the BM8563 RTC from the backend `generated_at` timestamp after successful sync
   - logs RTC status at boot and after calibration with `RTC now=... valid=1` or `RTC now=invalid valid=0`
+  - shows a clock page after normal boot; short-press Button A to enter the review/status flow
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
   - loads cached due cards when Wi-Fi or sync fails
