@@ -128,6 +128,7 @@ DeviceCard syncedCards[kMaxSyncedCards] = {};
 DeviceCard offlineCards[kMaxOfflineCards] = {};
 PendingReview pendingReviews[kMaxPendingReviews] = {};
 Preferences storage;
+Preferences cacheStorage;
 RuntimeConfig runtimeConfig;
 DNSServer dnsServer;
 WebServer setupServer(80);
@@ -658,63 +659,63 @@ void copyLegacyCard(DeviceCard* card, const LegacyDeviceCard& legacy, const Stri
 }
 
 void saveCachedTasks() {
-  storage.begin("stickwords", false);
-  storage.remove("card_count");
-  storage.remove("offline_count");
-  storage.remove("cards");
-  storage.remove("offline");
-  storage.putString("generated", serverGeneratedAt);
+  if (!cacheStorage.begin("stickcache", false, "cache")) {
+    Serial.println("Cache storage open failed");
+    return;
+  }
+  cacheStorage.remove("card_count");
+  cacheStorage.remove("offline_count");
+  cacheStorage.remove("cards");
+  cacheStorage.remove("offline");
+  cacheStorage.putString("generated", serverGeneratedAt);
   const size_t expectedCardBytes = sizeof(DeviceCard) * syncedCardCount;
   const size_t savedCardBytes = syncedCardCount == 0
                                     ? 0
-                                    : storage.putBytes("cards", syncedCards, expectedCardBytes);
+                                    : cacheStorage.putBytes("cards", syncedCards, expectedCardBytes);
   const size_t expectedOfflineBytes = sizeof(DeviceCard) * offlineCardCount;
   const size_t savedOfflineBytes = offlineCardCount == 0
                                        ? 0
-                                       : storage.putBytes("offline", offlineCards, expectedOfflineBytes);
+                                       : cacheStorage.putBytes("offline", offlineCards, expectedOfflineBytes);
   const size_t savedCardCount = savedCardBytes == expectedCardBytes ? syncedCardCount : 0;
   const size_t savedOfflineCount = savedOfflineBytes == expectedOfflineBytes ? offlineCardCount : 0;
-  storage.putUInt("card_count", static_cast<uint32_t>(savedCardCount));
-  storage.putUInt("offline_count", static_cast<uint32_t>(savedOfflineCount));
-  storage.end();
+  cacheStorage.putUInt("card_count", static_cast<uint32_t>(savedCardCount));
+  cacheStorage.putUInt("offline_count", static_cast<uint32_t>(savedOfflineCount));
+  cacheStorage.end();
   Serial.printf("Cached cards=%u offline=%u\n", static_cast<unsigned>(savedCardCount),
                 static_cast<unsigned>(savedOfflineCount));
 }
 
-bool loadCachedTasks() {
-  storage.begin("stickwords", true);
-  uint32_t storedCount = storage.getUInt("card_count", 0);
+bool readCachedTasksFromStorage(Preferences& prefs, bool allowLegacyCards) {
+  uint32_t storedCount = prefs.getUInt("card_count", 0);
   if (storedCount > kMaxSyncedCards) {
     storedCount = kMaxSyncedCards;
   }
 
-  uint32_t storedOfflineCount = storage.getUInt("offline_count", 0);
+  uint32_t storedOfflineCount = prefs.getUInt("offline_count", 0);
   if (storedOfflineCount > kMaxOfflineCards) {
     storedOfflineCount = kMaxOfflineCards;
   }
-  const size_t cardBytesLength = storedCount == 0 ? 0 : storage.getBytesLength("cards");
+  const size_t cardBytesLength = storedCount == 0 ? 0 : prefs.getBytesLength("cards");
   const size_t expectedBytes = sizeof(DeviceCard) * storedCount;
   const size_t expectedLegacyBytes = sizeof(LegacyDeviceCard) * storedCount;
   const size_t readBytes = storedCount == 0 || cardBytesLength != expectedBytes
                                ? 0
-                               : storage.getBytes("cards", syncedCards, expectedBytes);
+                               : prefs.getBytes("cards", syncedCards, expectedBytes);
   const size_t expectedOfflineBytes = sizeof(DeviceCard) * storedOfflineCount;
   const size_t readOfflineBytes = storedOfflineCount == 0
                                       ? 0
-                                      : storage.getBytes("offline", offlineCards, expectedOfflineBytes);
-  const String generatedAt = storage.getString("generated", "");
+                                      : prefs.getBytes("offline", offlineCards, expectedOfflineBytes);
+  const String generatedAt = prefs.getString("generated", "");
 
   if (storedCount == 0 && storedOfflineCount == 0) {
-    storage.end();
     return false;
   }
-  if (storedCount > 0 && cardBytesLength == expectedLegacyBytes) {
+  if (allowLegacyCards && storedCount > 0 && cardBytesLength == expectedLegacyBytes) {
     LegacyDeviceCard* legacyCards =
         static_cast<LegacyDeviceCard*>(malloc(expectedLegacyBytes));
     if (legacyCards == nullptr ||
-        storage.getBytes("cards", legacyCards, expectedLegacyBytes) != expectedLegacyBytes) {
+        prefs.getBytes("cards", legacyCards, expectedLegacyBytes) != expectedLegacyBytes) {
       free(legacyCards);
-      storage.end();
       return false;
     }
     for (size_t i = 0; i < storedCount; ++i) {
@@ -722,14 +723,11 @@ bool loadCachedTasks() {
     }
     free(legacyCards);
   } else if (storedCount > 0 && readBytes != expectedBytes) {
-    storage.end();
     return false;
   }
   if (storedOfflineCount > 0 && readOfflineBytes != expectedOfflineBytes) {
-    storage.end();
     return false;
   }
-  storage.end();
 
   syncedCardCount = storedCount;
   offlineCardCount = storedOfflineCount;
@@ -745,14 +743,34 @@ bool loadCachedTasks() {
   return true;
 }
 
-void clearCachedTasks() {
-  storage.begin("stickwords", false);
-  storage.remove("card_count");
-  storage.remove("generated");
-  storage.remove("cards");
-  storage.remove("offline_count");
-  storage.remove("offline");
+bool loadCachedTasks() {
+  if (cacheStorage.begin("stickcache", true, "cache")) {
+    const bool loaded = readCachedTasksFromStorage(cacheStorage, false);
+    cacheStorage.end();
+    if (loaded) {
+      return true;
+    }
+  }
+
+  storage.begin("stickwords", true);
+  const bool loadedLegacy = readCachedTasksFromStorage(storage, true);
   storage.end();
+  if (loadedLegacy) {
+    saveCachedTasks();
+  }
+  return loadedLegacy;
+}
+
+void clearCachedTasks() {
+  if (!cacheStorage.begin("stickcache", false, "cache")) {
+    return;
+  }
+  cacheStorage.remove("card_count");
+  cacheStorage.remove("generated");
+  cacheStorage.remove("cards");
+  cacheStorage.remove("offline_count");
+  cacheStorage.remove("offline");
+  cacheStorage.end();
 }
 
 void savePendingReviews() {
