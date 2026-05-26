@@ -1131,7 +1131,7 @@ void applyLocalReview(DeviceCard& card, Rating rating, const RtcTimestamp& revie
     addDaysToTimestamp(&due, static_cast<uint16_t>(card.intervalDays));
   }
 
-  copyBounded(card.dueAt, sizeof(card.dueAt), formatRtcTimestamp(due) + "Z");
+  copyBounded(card.dueAt, sizeof(card.dueAt), formatRtcTimestamp(due));
 }
 ```
 
@@ -1181,7 +1181,7 @@ git commit -m "Update offline schedule after device reviews"
 - Modify: `docs/dev_log.md`
 - Modify: `docs/handoff.md`
 
-- [ ] **Step 1: Update development log**
+- [x] **Step 1: Update development log**
 
 Append this entry to `docs/dev_log.md`:
 
@@ -1208,7 +1208,7 @@ Append this entry to `docs/dev_log.md`:
 - 恢复 Wi-Fi/backend，确认多条 pending reviews 上传成功。
 ```
 
-- [ ] **Step 2: Update handoff**
+- [x] **Step 2: Update handoff**
 
 In `docs/handoff.md`, add completed milestone:
 
@@ -1231,7 +1231,7 @@ Replace the known-limit line that says cached fallback does not compute future d
 - Firmware offline scheduling is limited to the most recently synced offline package; it does not cache the full PC vocabulary.
 ```
 
-- [ ] **Step 3: Run full verification**
+- [x] **Step 3: Run full verification**
 
 Run:
 
@@ -1251,7 +1251,7 @@ Expected:
 - `git diff --check` has no errors.
 - `git status --short` shows only the intended docs if not yet committed.
 
-- [ ] **Step 4: Commit docs**
+- [x] **Step 4: Commit docs**
 
 ```powershell
 git add docs/dev_log.md docs/handoff.md

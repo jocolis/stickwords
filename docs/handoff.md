@@ -16,6 +16,7 @@ Completed milestones:
 - Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, device setup portal, and captive portal setup assist.
 - Stage 5A RTC calibration from backend sync time.
 - Stage 5C idle auto power-off after 3 minutes without user interaction.
+- Stage 5D RTC-backed offline due scheduling.
 
 ## How To Run The PC Backend
 
@@ -217,6 +218,18 @@ Stage 5C idle power-off validation procedure:
 6. Enter setup mode and confirm the setup portal is not interrupted by the 3-minute idle timer.
 
 Real-device result: user confirmed the idle power-off test passed on the M5Stick C Plus.
+
+Stage 5D offline due scheduling validation procedure:
+
+1. Start the PC backend and open the admin page.
+2. Boot M5Stick with Wi-Fi available and let it sync once.
+3. Confirm serial logs show a successful `/api/device/tasks` request and cached cards.
+4. Stop the PC backend or make Wi-Fi unavailable.
+5. Reboot M5Stick and confirm it uses cached offline cards instead of showing only sync failure.
+6. Review one card as `forgot`; with RTC valid, it should be scheduled locally for about 10 minutes later.
+7. Wait at least 10 minutes while still offline, then reboot or return through the review flow and confirm that card can become due again from the cache.
+8. Restore Wi-Fi/backend and confirm pending review events upload successfully.
+9. Confirm the PC backend updates `vocab.csv` after replaying the uploaded events.
 
 ## Next Stage
 

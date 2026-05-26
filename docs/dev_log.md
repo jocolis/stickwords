@@ -819,3 +819,16 @@ Verification:
 
 Next:
 - Task 8: run full repository verification and prepare a manual M5Stick validation script for the complete offline due scheduling flow.
+
+## 2026-05-26 Stage 5D: final verification and manual validation script
+
+Completed:
+- Updated the handoff milestone list with Stage 5D RTC-backed offline due scheduling.
+- Added a Stage 5D real-device validation procedure covering online sync, offline cached review, local repeat due behavior, pending upload, and PC CSV replay.
+- Corrected the implementation plan snippet so `formatRtcTimestamp()` is not followed by an extra `Z`.
+
+Verification:
+- Full Python test suite passed, 99 tests:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
