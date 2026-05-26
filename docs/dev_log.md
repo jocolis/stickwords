@@ -765,3 +765,17 @@
 - 上传固件后正常开机，停在时间页或复习页不操作 3 分钟，应显示 `Power off` 后关机。
 - 3 分钟内按 Button A 或 Button B，应重新开始计时。
 - 进入 setup mode 后静置，不应被 3 分钟自动关机打断。
+
+## 2026-05-26 Stage 5D design: RTC-backed offline due scheduling
+
+设计结论：
+- 采用折中离线包：未来 7 天 due 复习词 + 最多 20 个 new 词，不缓存完整 `vocab.csv`。
+- 离线时由 M5Stick 使用 BM8563 RTC 判断缓存卡是否到期。
+- 离线评分后，M5Stick 本地更新该缓存卡的下一次 `due_at`，支持同一个词在离线期间多次到期并复习。
+- pending reviews 从“同词覆盖”改为 append-only 事件队列；Wi-Fi 恢复后上传多条事件，PC 按事件 ID 去重并按时间顺序重放，最终更新 `vocab.csv` 的当前状态。
+
+文档：
+- 设计文档：`docs/superpowers/specs/2026-05-26-stickwords-offline-due-scheduling-design.md`
+
+下一步：
+- 用户确认设计文档后，进入实现计划阶段。
