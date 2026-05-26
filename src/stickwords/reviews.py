@@ -86,13 +86,18 @@ def process_review_events(
     failed = 0
     errors: list[str] = []
 
-    for raw_event in events:
-        event = ReviewEvent(
+    normalized_events = [
+        ReviewEvent(
             review_event_id=raw_event.review_event_id,
             word_id=raw_event.word_id,
             rating=raw_event.rating,
             reviewed_at=normalize_dt(raw_event.reviewed_at),
         )
+        for raw_event in events
+    ]
+    normalized_events.sort(key=lambda event: (event.reviewed_at, event.review_event_id))
+
+    for event in normalized_events:
         if event.review_event_id in processed_ids:
             skipped_duplicate += 1
             continue

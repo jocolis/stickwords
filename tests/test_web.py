@@ -422,6 +422,49 @@ class WebTests(unittest.TestCase):
             self.assertEqual(reviewed.review_count, 1)
             self.assertEqual(reviewed.status, "review")
 
+    def test_post_device_reviews_replays_multiple_same_word_events(self):
+        now = datetime(2026, 5, 26, 8, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            word = service.add_word("abandon", "give up", "Do not abandon it.")
+            app = create_app(service)
+            body = json.dumps(
+                {
+                    "device_id": "m5stick-c-plus",
+                    "reviews": [
+                        {
+                            "word_id": word.id,
+                            "rating": "good",
+                            "reviewed_at": "2026-05-26T08:10:00Z",
+                            "event_id": "m5stick-c-plus-test-2",
+                        },
+                        {
+                            "word_id": word.id,
+                            "rating": "forgot",
+                            "reviewed_at": "2026-05-26T08:00:00Z",
+                            "event_id": "m5stick-c-plus-test-1",
+                        },
+                    ],
+                }
+            )
+
+            status, _, response_body = call_app(
+                app,
+                "POST",
+                "/api/device/reviews",
+                body,
+                content_type="application/json",
+            )
+
+            reviewed = service.load_words()[0]
+            self.assertEqual(status, "200 OK")
+            self.assertEqual(json.loads(response_body)["accepted"], 2)
+            self.assertEqual(reviewed.review_count, 2)
+            self.assertEqual(
+                reviewed.last_reviewed_at,
+                datetime(2026, 5, 26, 8, 10, tzinfo=timezone.utc),
+            )
+
     def test_post_device_reviews_reports_invalid_rows(self):
         with workspace_temp_dir() as temp_dir:
             service = StickWordsService(temp_dir)

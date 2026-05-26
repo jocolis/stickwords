@@ -85,6 +85,34 @@ class ReviewEventTests(unittest.TestCase):
                 {first.review_event_id, second.review_event_id},
             )
 
+    def test_process_review_events_replays_same_word_by_reviewed_at(self):
+        now = datetime(2026, 5, 26, 8, 0, tzinfo=timezone.utc)
+        word = Word.new_word("w-1", "abandon", "give up", "Do not abandon it.", now)
+        later = ReviewEvent(
+            review_event_id="device-1-2-w-1",
+            word_id="w-1",
+            rating=RATING_GOOD,
+            reviewed_at=datetime(2026, 5, 26, 8, 10, tzinfo=timezone.utc),
+        )
+        earlier = ReviewEvent(
+            review_event_id="device-1-1-w-1",
+            word_id="w-1",
+            rating=RATING_GOOD,
+            reviewed_at=datetime(2026, 5, 26, 8, 0, tzinfo=timezone.utc),
+        )
+
+        with workspace_temp_dir() as temp_dir:
+            event_store = ReviewEventStore(temp_dir / "review_events.csv")
+            result = process_review_events(
+                words=[word],
+                events=[later, earlier],
+                event_store=event_store,
+            )
+
+            self.assertEqual(result.applied, 2)
+            self.assertEqual(result.words[0].review_count, 2)
+            self.assertEqual(result.words[0].last_reviewed_at, later.reviewed_at)
+
 
 if __name__ == "__main__":
     unittest.main()
