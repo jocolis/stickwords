@@ -1301,6 +1301,27 @@ String formatRtcTimestamp(const RtcTimestamp& timestamp) {
   return String(buffer);
 }
 
+int compareRtcTimestamp(const RtcTimestamp& left, const RtcTimestamp& right) {
+  if (left.year != right.year) return left.year < right.year ? -1 : 1;
+  if (left.month != right.month) return left.month < right.month ? -1 : 1;
+  if (left.date != right.date) return left.date < right.date ? -1 : 1;
+  if (left.hour != right.hour) return left.hour < right.hour ? -1 : 1;
+  if (left.minute != right.minute) return left.minute < right.minute ? -1 : 1;
+  if (left.second != right.second) return left.second < right.second ? -1 : 1;
+  return 0;
+}
+
+bool isCardDue(const DeviceCard& card, const RtcTimestamp& now) {
+  if (card.dueAt[0] == '\0') {
+    return false;
+  }
+  RtcTimestamp due = {};
+  if (!parseUtcTimestamp(String(card.dueAt), &due)) {
+    return false;
+  }
+  return compareRtcTimestamp(due, now) <= 0;
+}
+
 String formatRtcDate(const RtcTimestamp& timestamp) {
   char buffer[11];
   std::snprintf(
@@ -1409,6 +1430,40 @@ void setRtcFromGeneratedAt(const char* generatedAt) {
   logRtcNow();
 }
 
+bool selectOfflineDueCards() {
+  syncedCardCount = 0;
+  const RtcTimestamp now = readRtcTimestamp();
+  if (!isValidRtcTimestamp(now)) {
+    setStatusPage("RTC invalid", "sync needed");
+    drawStatusMessage("RTC invalid", "sync needed");
+    return false;
+  }
+
+  for (size_t i = 0; i < offlineCardCount && syncedCardCount < kMaxImmediateCards; ++i) {
+    const DeviceCard& card = offlineCards[i];
+    if (std::strcmp(card.status, "new") != 0 && isCardDue(card, now)) {
+      syncedCards[syncedCardCount++] = card;
+    }
+  }
+
+  for (size_t i = 0; i < offlineCardCount && syncedCardCount < kMaxImmediateCards; ++i) {
+    const DeviceCard& card = offlineCards[i];
+    if (std::strcmp(card.status, "new") == 0) {
+      syncedCards[syncedCardCount++] = card;
+    }
+  }
+
+  if (syncedCardCount == 0) {
+    setStatusPage("No due cards");
+    drawStatusMessage("No due cards");
+    return false;
+  }
+
+  resetReviewSet();
+  Serial.printf("Selected offline cards=%u\n", static_cast<unsigned>(syncedCardCount));
+  return true;
+}
+
 bool fetchDeviceTasks() {
   drawStatusMessage("Sync...");
   HTTPClient http;
@@ -1423,6 +1478,7 @@ bool fetchDeviceTasks() {
     serverGeneratedAt[0] = '\0';
     if (loadCachedTasks()) {
       Serial.println("Using cached tasks after sync failure");
+      selectOfflineDueCards();
       return true;
     }
     drawStatusMessage("Sync failed", "check server");
@@ -1438,6 +1494,7 @@ bool fetchDeviceTasks() {
     serverGeneratedAt[0] = '\0';
     if (loadCachedTasks()) {
       Serial.println("Using cached tasks after parse failure");
+      selectOfflineDueCards();
       return true;
     }
     drawStatusMessage("Sync failed", "check server");
@@ -1859,6 +1916,7 @@ void setup() {
     fetchDeviceTasks();
   } else if (loadCachedTasks()) {
     Serial.println("Using cached tasks after WiFi failure");
+    selectOfflineDueCards();
   }
   showClockPage();
   logPage();

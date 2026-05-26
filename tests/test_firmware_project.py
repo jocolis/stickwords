@@ -900,6 +900,23 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("if (offlineCardCount > 0)", fetch_body)
         self.assertLess(fetch_body.index("saveCachedTasks()"), fetch_body.index("clearCachedTasks()"))
 
+    def test_stage5d_firmware_selects_cached_due_cards_using_rtc(self):
+        source = firmware_source()
+        select_body = firmware_function_body(source, "selectOfflineDueCards")
+        setup_body = firmware_function_body(source, "setup")
+        fetch_body = firmware_function_body(source, "fetchDeviceTasks")
+
+        self.assertIn("bool selectOfflineDueCards()", source)
+        self.assertIn("readRtcTimestamp()", select_body)
+        self.assertIn("isValidRtcTimestamp(now)", select_body)
+        self.assertIn("isCardDue(card, now)", select_body)
+        self.assertIn('std::strcmp(card.status, "new")', select_body)
+        self.assertIn("offlineCards", select_body)
+        self.assertIn("syncedCards[syncedCardCount++] = card", select_body)
+        self.assertIn("selectOfflineDueCards()", setup_body)
+        self.assertIn("selectOfflineDueCards()", fetch_body)
+        self.assertIn('setStatusPage("RTC invalid", "sync needed")', select_body)
+
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()
         setup_body = firmware_function_body(source, "setup")
