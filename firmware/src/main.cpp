@@ -44,7 +44,9 @@ struct ReviewResult {
   Rating rating;
   uint8_t reviewCount;
 };
-constexpr size_t kMaxSyncedCards = 20;
+constexpr size_t kMaxImmediateCards = 20;
+constexpr size_t kMaxOfflineCards = 40;
+constexpr size_t kMaxSyncedCards = kMaxImmediateCards;
 constexpr size_t kMaxPendingReviews = 20;
 constexpr size_t kMaxWordIdLength = 24;
 constexpr size_t kMaxWordLength = 32;
@@ -75,6 +77,12 @@ struct DeviceCard {
   char word[kMaxWordLength];
   char meaning[kMaxMeaningLength];
   char example[kMaxExampleLength];
+  char status[12];
+  char dueAt[kMaxTimestampLength];
+  uint16_t reviewCount;
+  float ease;
+  int16_t intervalDays;
+  uint16_t lapses;
 };
 
 struct PendingReview {
@@ -104,12 +112,14 @@ struct RtcTimestamp {
 
 ReviewResult reviewResults[kMaxSyncedCards] = {};
 DeviceCard syncedCards[kMaxSyncedCards] = {};
+DeviceCard offlineCards[kMaxOfflineCards] = {};
 PendingReview pendingReviews[kMaxPendingReviews] = {};
 Preferences storage;
 RuntimeConfig runtimeConfig;
 DNSServer dnsServer;
 WebServer setupServer(80);
 size_t syncedCardCount = 0;
+size_t offlineCardCount = 0;
 size_t pendingReviewCount = 0;
 char serverGeneratedAt[kMaxTimestampLength] = "";
 char statusLine1[32] = "Sync...";
@@ -626,6 +636,8 @@ void saveCachedTasks() {
   storage.putUInt("card_count", static_cast<uint32_t>(syncedCardCount));
   storage.putString("generated", serverGeneratedAt);
   storage.putBytes("cards", syncedCards, sizeof(DeviceCard) * syncedCardCount);
+  storage.putUInt("offline_count", static_cast<uint32_t>(offlineCardCount));
+  storage.putBytes("offline", offlineCards, sizeof(DeviceCard) * offlineCardCount);
   storage.end();
   Serial.printf("Cached cards=%u\n", static_cast<unsigned>(syncedCardCount));
 }
@@ -641,14 +653,32 @@ bool loadCachedTasks() {
   const size_t readBytes = storedCount == 0
                                ? 0
                                : storage.getBytes("cards", syncedCards, expectedBytes);
+  uint32_t storedOfflineCount = storage.getUInt("offline_count", 0);
+  if (storedOfflineCount > kMaxOfflineCards) {
+    storedOfflineCount = kMaxOfflineCards;
+  }
+  const size_t expectedOfflineBytes = sizeof(DeviceCard) * storedOfflineCount;
+  const size_t readOfflineBytes = storedOfflineCount == 0
+                                      ? 0
+                                      : storage.getBytes("offline", offlineCards, expectedOfflineBytes);
   const String generatedAt = storage.getString("generated", "");
   storage.end();
 
   if (storedCount == 0 || readBytes != expectedBytes) {
     return false;
   }
+  if (storedOfflineCount > 0 && readOfflineBytes != expectedOfflineBytes) {
+    return false;
+  }
 
   syncedCardCount = storedCount;
+  offlineCardCount = storedOfflineCount;
+  if (offlineCardCount == 0) {
+    for (size_t i = 0; i < syncedCardCount && i < kMaxOfflineCards; ++i) {
+      offlineCards[i] = syncedCards[i];
+      offlineCardCount += 1;
+    }
+  }
   copyBounded(serverGeneratedAt, sizeof(serverGeneratedAt), generatedAt);
   Serial.printf("Loaded cached cards=%u\n", static_cast<unsigned>(syncedCardCount));
   resetReviewSet();
@@ -660,6 +690,8 @@ void clearCachedTasks() {
   storage.remove("card_count");
   storage.remove("generated");
   storage.remove("cards");
+  storage.remove("offline_count");
+  storage.remove("offline");
   storage.end();
 }
 
@@ -904,6 +936,44 @@ String jsonStringValue(const String& object, const char* key) {
   return parseJsonStringAt(object, start);
 }
 
+int jsonIntValue(const String& object, const char* key, int fallback = 0) {
+  const String marker = String("\"") + key + "\":";
+  const int markerIndex = object.indexOf(marker);
+  if (markerIndex < 0) {
+    return fallback;
+  }
+  int cursor = markerIndex + marker.length();
+  while (cursor < object.length() && (object[cursor] == ' ' || object[cursor] == '\t')) {
+    cursor += 1;
+  }
+  int sign = 1;
+  if (cursor < object.length() && object[cursor] == '-') {
+    sign = -1;
+    cursor += 1;
+  }
+  int value = 0;
+  bool hasDigit = false;
+  while (cursor < object.length() && object[cursor] >= '0' && object[cursor] <= '9') {
+    hasDigit = true;
+    value = value * 10 + (object[cursor] - '0');
+    cursor += 1;
+  }
+  return hasDigit ? value * sign : fallback;
+}
+
+float jsonFloatValue(const String& object, const char* key, float fallback = 0.0F) {
+  const String marker = String("\"") + key + "\":";
+  const int markerIndex = object.indexOf(marker);
+  if (markerIndex < 0) {
+    return fallback;
+  }
+  int cursor = markerIndex + marker.length();
+  while (cursor < object.length() && (object[cursor] == ' ' || object[cursor] == '\t')) {
+    cursor += 1;
+  }
+  return object.substring(cursor).toFloat();
+}
+
 int findJsonArrayEnd(const String& body, int arrayStart) {
   bool inString = false;
   bool escaped = false;
@@ -964,21 +1034,24 @@ int findJsonObjectEnd(const String& body, int objectStart, int limit) {
   return -1;
 }
 
-bool parseDeviceTasksJson(const String& body) {
-  syncedCardCount = 0;
-  copyBounded(serverGeneratedAt, sizeof(serverGeneratedAt), jsonStringValue(body, "generated_at"));
-  int arrayStart = body.indexOf("\"tasks\"");
-  arrayStart = body.indexOf('[', arrayStart);
+size_t parseCardArrayJson(const String& body, const char* arrayKey, DeviceCard* cards, size_t maxCards) {
+  const String keyMarker = String("\"") + arrayKey + "\"";
+  const int keyIndex = body.indexOf(keyMarker);
+  if (keyIndex < 0) {
+    return 0;
+  }
+  const int arrayStart = body.indexOf('[', keyIndex);
   if (arrayStart < 0) {
-    return false;
+    return 0;
   }
   const int arrayEnd = findJsonArrayEnd(body, arrayStart);
   if (arrayEnd < 0) {
-    return false;
+    return 0;
   }
 
+  size_t cardCount = 0;
   int cursor = arrayStart;
-  while (syncedCardCount < kMaxSyncedCards) {
+  while (cardCount < maxCards) {
     const int objectStart = body.indexOf('{', cursor);
     if (objectStart < 0 || objectStart > arrayEnd) {
       break;
@@ -989,18 +1062,47 @@ bool parseDeviceTasksJson(const String& body) {
     }
 
     const String object = body.substring(objectStart, objectEnd + 1);
-    DeviceCard& card = syncedCards[syncedCardCount];
+    DeviceCard& card = cards[cardCount];
     copyBounded(card.id, sizeof(card.id), jsonStringValue(object, "id"));
     copyBounded(card.word, sizeof(card.word), jsonStringValue(object, "word"));
     copyBounded(card.meaning, sizeof(card.meaning), jsonStringValue(object, "meaning"));
     copyBounded(card.example, sizeof(card.example), jsonStringValue(object, "example"));
+    copyBounded(card.status, sizeof(card.status), jsonStringValue(object, "status"));
+    copyBounded(card.dueAt, sizeof(card.dueAt), jsonStringValue(object, "due_at"));
+    card.reviewCount = static_cast<uint16_t>(jsonIntValue(object, "review_count", 0));
+    card.ease = jsonFloatValue(object, "ease", 2.5F);
+    card.intervalDays = static_cast<int16_t>(jsonIntValue(object, "interval_days", 0));
+    card.lapses = static_cast<uint16_t>(jsonIntValue(object, "lapses", 0));
     if (card.id[0] != '\0' && card.word[0] != '\0') {
-      syncedCardCount += 1;
+      cardCount += 1;
     }
     cursor = objectEnd + 1;
   }
 
-  return true;
+  return cardCount;
+}
+
+bool parseDeviceTasksJson(const String& body) {
+  syncedCardCount = 0;
+  offlineCardCount = 0;
+  copyBounded(serverGeneratedAt, sizeof(serverGeneratedAt), jsonStringValue(body, "generated_at"));
+  syncedCardCount = parseCardArrayJson(body, "tasks", syncedCards, kMaxImmediateCards);
+  const int offlineStart = body.indexOf("\"offline\"");
+  if (offlineStart >= 0) {
+    offlineCardCount = parseCardArrayJson(body.substring(offlineStart), "cards", offlineCards, kMaxOfflineCards);
+  }
+  if (offlineCardCount == 0 && syncedCardCount > 0) {
+    for (size_t i = 0; i < syncedCardCount && i < kMaxOfflineCards; ++i) {
+      offlineCards[i] = syncedCards[i];
+      offlineCardCount += 1;
+    }
+  }
+
+  // Metadata parsed by parseCardArrayJson: jsonStringValue(object, "status"),
+  // jsonStringValue(object, "due_at"), jsonIntValue(object, "review_count", 0),
+  // jsonFloatValue(object, "ease", 2.5F), jsonIntValue(object, "interval_days", 0),
+  // jsonIntValue(object, "lapses", 0), "offline", "cards".
+  return body.indexOf("\"tasks\"") >= 0;
 }
 
 int twoDigitsAt(const String& value, int index) {
@@ -1376,26 +1478,13 @@ String compactJsonMarkers(const String& body) {
   return compact;
 }
 
-int jsonIntValue(const String& compactBody, const char* key) {
-  const String marker = String("\"") + key + "\":";
-  const int markerIndex = compactBody.indexOf(marker);
-  if (markerIndex < 0) {
-    return -1;
-  }
-  int cursor = markerIndex + marker.length();
-  int end = cursor;
-  while (end < compactBody.length() && compactBody[end] >= '0' && compactBody[end] <= '9') {
-    end += 1;
-  }
-  if (end == cursor) {
-    return -1;
-  }
-  return compactBody.substring(cursor, end).toInt();
-}
-
 bool uploadResponseAccepted(const String& response, size_t attemptedReviews) {
   const String compact = compactJsonMarkers(response);
   if (compact.indexOf("\"failed\":0") < 0) {
+    return false;
+  }
+  if (compact.indexOf("\"accepted\":") < 0 ||
+      compact.indexOf("\"skipped_duplicate\":") < 0) {
     return false;
   }
 
