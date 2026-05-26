@@ -71,3 +71,27 @@ def get_today_tasks(
     new_words.sort(key=lambda word: (normalize_dt(word.added_at), word.word.casefold()))
 
     return due_words[:max_due] + new_words[:max_new]
+
+
+def get_offline_package(
+    words: list[Word],
+    now: datetime,
+    horizon_days: int = 7,
+    max_due: int = 20,
+    max_new: int = 20,
+) -> list[Word]:
+    now = normalize_dt(now)
+    horizon = now + timedelta(days=horizon_days)
+    eligible_words = [word for word in words if word.status != STATUS_SUSPENDED]
+
+    due_words = [
+        word
+        for word in eligible_words
+        if word.status != STATUS_NEW and normalize_dt(word.due_at) <= horizon
+    ]
+    due_words.sort(key=lambda word: (normalize_dt(word.due_at), word.word.casefold()))
+
+    new_words = [word for word in eligible_words if word.status == STATUS_NEW]
+    new_words.sort(key=lambda word: (normalize_dt(word.added_at), word.word.casefold()))
+
+    return due_words[:max_due] + new_words[:max_new]

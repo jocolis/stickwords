@@ -11,7 +11,7 @@ from stickwords.models import (
     STATUS_SUSPENDED,
     Word,
 )
-from stickwords.scheduler import apply_review, get_today_tasks
+from stickwords.scheduler import apply_review, get_offline_package, get_today_tasks
 
 
 class SchedulerTests(unittest.TestCase):
@@ -235,6 +235,38 @@ class SchedulerTests(unittest.TestCase):
         tasks = get_today_tasks([new_word, due_word], now, 20, 5)
 
         self.assertEqual([word.id for word in tasks], ["w-1", "w-2"])
+
+    def test_get_offline_package_returns_7_day_due_then_new_reserve(self):
+        now = datetime(2026, 5, 26, 8, 0, tzinfo=timezone.utc)
+
+        due_soon = Word.new_word("w-1", "alpha", "first", "Alpha example.", now)
+        due_soon.status = STATUS_REVIEW
+        due_soon.due_at = now + timedelta(days=2)
+
+        due_now = Word.new_word("w-2", "beta", "second", "Beta example.", now)
+        due_now.status = STATUS_REVIEW
+        due_now.due_at = now - timedelta(minutes=5)
+
+        future = Word.new_word("w-3", "gamma", "third", "Gamma example.", now)
+        future.status = STATUS_REVIEW
+        future.due_at = now + timedelta(days=8)
+
+        new_later = Word.new_word("w-4", "delta", "fourth", "Delta example.", now + timedelta(minutes=1))
+        new_earlier = Word.new_word("w-5", "epsilon", "fifth", "Epsilon example.", now)
+
+        suspended = Word.new_word("w-6", "zeta", "sixth", "Zeta example.", now)
+        suspended.status = STATUS_SUSPENDED
+        suspended.due_at = now
+
+        package = get_offline_package(
+            [new_later, suspended, due_soon, future, new_earlier, due_now],
+            now,
+            horizon_days=7,
+            max_due=20,
+            max_new=20,
+        )
+
+        self.assertEqual([word.id for word in package], ["w-2", "w-1", "w-5", "w-4"])
 
 
 if __name__ == "__main__":
