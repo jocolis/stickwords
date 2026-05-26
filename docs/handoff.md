@@ -15,6 +15,7 @@ Completed milestones:
 - Stage 3C-2 rating-page double-shake `good`, validated on the real device.
 - Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, device setup portal, and captive portal setup assist.
 - Stage 5A RTC calibration from backend sync time.
+- Stage 5C idle auto power-off after 3 minutes without user interaction.
 
 ## How To Run The PC Backend
 
@@ -153,6 +154,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - logs RTC status at boot and after calibration with `RTC now=... valid=1` or `RTC now=invalid valid=0`
   - shows a UTC+8 clock page after normal boot while keeping RTC/sync timestamps internally in UTC
   - short-press Button A on the clock page to enter the review/status flow
+  - powers off after 3 minutes without Button A, Button B, or double-shake interaction outside setup mode
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
   - loads cached due cards when Wi-Fi or sync fails
@@ -202,6 +204,17 @@ Stage 5A RTC validation procedure:
 4. Power off M5Stick.
 5. Wait 1 to 2 minutes.
 6. Boot again and confirm `RTC now=... valid=1` moved forward.
+
+Stage 5C idle power-off validation procedure:
+
+1. Upload the latest firmware.
+2. Boot normally and leave the M5Stick on the clock or review page.
+3. Do not press buttons or shake the device for 3 minutes.
+4. Confirm the screen briefly shows `Power off`, then the device powers off.
+5. Repeat once while pressing Button A or Button B before 3 minutes; confirm the timer restarts.
+6. Enter setup mode and confirm the setup portal is not interrupted by the 3-minute idle timer.
+
+Real-device result: user confirmed the idle power-off test passed on the M5Stick C Plus.
 
 ## Next Stage
 

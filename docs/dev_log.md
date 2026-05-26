@@ -740,3 +740,28 @@
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO 固件编译通过：
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-05-26 Stage 5C: idle auto power-off
+
+完成内容：
+- 固件新增 3 分钟无用户操作自动关机。
+- setup mode 不参与自动关机，避免手机/PC 配置时中途断电。
+- Button A 短按、Button A 长按、Button B 短按、评分页双摇 `good` 都会刷新空闲计时。
+- 自动关机前会尝试再次保存 pending reviews，降低未上传评分丢失风险。
+
+测试结果：
+- 先写入失败测试，确认旧固件没有 `handleIdlePowerOff` 自动关机逻辑。
+- 空闲关机源码测试通过：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage5c_idle_timeout_powers_off_outside_setup_mode -v`
+- 固件源码测试通过 25 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- 仓库级 Python 全量测试通过 90 个测试：
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- PlatformIO 固件编译通过：
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- 用户已在真实 M5Stick C Plus 上确认 3 分钟静置自动关机测试通过。
+
+真机验证建议：
+- 上传固件后正常开机，停在时间页或复习页不操作 3 分钟，应显示 `Power off` 后关机。
+- 3 分钟内按 Button A 或 Button B，应重新开始计时。
+- 进入 setup mode 后静置，不应被 3 分钟自动关机打断。

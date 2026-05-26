@@ -56,6 +56,7 @@ constexpr size_t kMaxPasswordLength = 65;
 constexpr size_t kMaxServerUrlLength = 96;
 constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
+constexpr uint32_t kIdlePowerOffMs = 180000;
 constexpr uint32_t kShakeWindowMs = 650;
 constexpr uint32_t kShakeCooldownMs = 900;
 constexpr uint8_t kClockDisplayUtcOffsetHours = 8;
@@ -131,6 +132,7 @@ uint8_t shakeCount = 0;
 uint32_t shakeWindowStartedAt = 0;
 uint32_t lastShakeAt = 0;
 uint32_t lastClockRefreshAt = 0;
+uint32_t lastInteractionAt = 0;
 bool shakeAboveThreshold = false;
 Rating selectedRating = Rating::Forgot;
 int lastSubmittedIndex = -1;
@@ -138,6 +140,7 @@ int returnAfterReRatingIndex = -1;
 bool isReRating = false;
 bool needsRender = true;
 bool setupPortalActive = false;
+bool powerOffStarted = false;
 
 const char* ratingName(Rating rating) {
   switch (rating) {
@@ -1156,10 +1159,30 @@ void logRtcNow() {
   Serial.println("RTC now=" + formatRtcTimestamp(timestamp) + " valid=1");
 }
 
+void recordInteraction(uint32_t now) {
+  lastInteractionAt = now;
+}
+
+void handleIdlePowerOff(uint32_t now) {
+  if (powerOffStarted || now - lastInteractionAt < kIdlePowerOffMs) {
+    return;
+  }
+
+  powerOffStarted = true;
+  Serial.println("Idle power off");
+  if (pendingReviewCount > 0) {
+    savePendingReviews();
+  }
+  drawStatusMessage("Power off");
+  delay(100);
+  M5.Axp.PowerOff();
+}
+
 void showClockPage() {
   if (currentPage != Page::Clock) {
     clockExitPage = currentPage;
   }
+  recordInteraction(millis());
   lastClockRefreshAt = 0;
   setPage(Page::Clock);
 }
@@ -1505,6 +1528,7 @@ void updateShakeGood(uint32_t now) {
 
   selectedRating = Rating::Good;
   lastShakeAt = now;
+  recordInteraction(now);
   Serial.printf("Shake good word=%s magnitude=%.2f\n", currentCard().word, magnitude);
   submitRating();
 }
@@ -1533,6 +1557,7 @@ bool tryReRatePrevious() {
 }
 
 void handleButtonAShortPress() {
+  recordInteraction(millis());
   const Card card = currentCard();
   switch (currentPage) {
     case Page::Status:
@@ -1574,12 +1599,14 @@ void handleButtonAShortPress() {
 }
 
 void handleButtonALongPress() {
+  recordInteraction(millis());
   if (currentPage == Page::Rating) {
     submitRating();
   }
 }
 
 void handleButtonBShortPress() {
+  recordInteraction(millis());
   const Card card = currentCard();
   switch (currentPage) {
     case Page::Status:
@@ -1628,6 +1655,7 @@ void setup() {
   M5.Lcd.setTextFont(1);
   M5.Lcd.setTextDatum(TL_DATUM);
   reviewBootNonce = esp_random();
+  lastInteractionAt = millis();
 
   Serial.println("StickWords Stage 4 boot");
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
@@ -1680,6 +1708,7 @@ void loop() {
     handleButtonBShortPress();
   }
 
+  handleIdlePowerOff(now);
   render();
   delay(20);
 }
