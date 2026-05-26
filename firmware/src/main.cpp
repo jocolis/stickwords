@@ -101,6 +101,14 @@ struct CardArrayParseResult {
 struct PendingReview {
   char wordId[kMaxWordIdLength];
   Rating rating;
+  char reviewedAt[kMaxTimestampLength];
+  uint32_t sequence;
+  bool uploaded;
+};
+
+struct LegacyPendingReview {
+  char wordId[kMaxWordIdLength];
+  Rating rating;
   uint32_t reviewedAtMs;
   uint32_t sequence;
   bool uploaded;
@@ -790,13 +798,32 @@ bool loadPendingReviews() {
   }
 
   const size_t expectedBytes = sizeof(PendingReview) * storedCount;
-  const size_t readBytes = storedCount == 0
-                               ? 0
-                               : storage.getBytes("pending", pendingReviews, expectedBytes);
+  const size_t storedBytes = storedCount == 0 ? 0 : storage.getBytesLength("pending");
+  size_t readBytes = 0;
+  bool loadedLegacy = false;
+  if (storedCount > 0 && storedBytes == expectedBytes) {
+    readBytes = storage.getBytes("pending", pendingReviews, expectedBytes);
+  } else if (storedCount > 0 &&
+             storedBytes == sizeof(LegacyPendingReview) * storedCount) {
+    LegacyPendingReview legacyPending[kMaxPendingReviews] = {};
+    readBytes = storage.getBytes("pending", legacyPending, storedBytes);
+    if (readBytes == storedBytes) {
+      for (size_t i = 0; i < storedCount; ++i) {
+        copyBounded(pendingReviews[i].wordId, sizeof(pendingReviews[i].wordId),
+                    String(legacyPending[i].wordId));
+        pendingReviews[i].rating = legacyPending[i].rating;
+        copyBounded(pendingReviews[i].reviewedAt, sizeof(pendingReviews[i].reviewedAt),
+                    String("1970-01-01T00:00:00Z"));
+        pendingReviews[i].sequence = legacyPending[i].sequence;
+        pendingReviews[i].uploaded = legacyPending[i].uploaded;
+      }
+      loadedLegacy = true;
+    }
+  }
   const uint32_t storedSequence = storage.getUInt("review_seq", 0);
   storage.end();
 
-  if (storedCount > 0 && readBytes != expectedBytes) {
+  if (storedCount > 0 && !loadedLegacy && readBytes != expectedBytes) {
     pendingReviewCount = 0;
     return false;
   }
@@ -1446,10 +1473,12 @@ bool selectOfflineDueCards() {
     }
   }
 
-  for (size_t i = 0; i < offlineCardCount && syncedCardCount < kMaxImmediateCards; ++i) {
-    const DeviceCard& card = offlineCards[i];
-    if (std::strcmp(card.status, "new") == 0) {
-      syncedCards[syncedCardCount++] = card;
+  if (syncedCardCount == 0) {
+    for (size_t i = 0; i < offlineCardCount && syncedCardCount < kMaxImmediateCards; ++i) {
+      const DeviceCard& card = offlineCards[i];
+      if (std::strcmp(card.status, "new") == 0) {
+        syncedCards[syncedCardCount++] = card;
+      }
     }
   }
 
@@ -1530,27 +1559,16 @@ String currentReviewTimestamp() {
 }
 
 void queuePendingReview(const char* wordId, Rating rating) {
-  for (size_t i = 0; i < pendingReviewCount; ++i) {
-    PendingReview& existing = pendingReviews[i];
-    if (!existing.uploaded && std::strcmp(existing.wordId, wordId) == 0) {
-      Serial.printf("replace pending review word=%s\n", wordId);
-      existing.rating = rating;
-      existing.reviewedAtMs = millis();
-      existing.sequence = ++reviewSequence;
-      savePendingReviews();
-      return;
-    }
-  }
-
   if (pendingReviewCount >= kMaxPendingReviews) {
     Serial.println("Pending review queue full");
+    drawStatusMessage("Review queue full", "sync needed");
     return;
   }
 
   PendingReview& pending = pendingReviews[pendingReviewCount++];
   copyBounded(pending.wordId, sizeof(pending.wordId), String(wordId));
   pending.rating = rating;
-  pending.reviewedAtMs = millis();
+  copyBounded(pending.reviewedAt, sizeof(pending.reviewedAt), currentReviewTimestamp());
   pending.sequence = ++reviewSequence;
   pending.uploaded = false;
   savePendingReviews();
@@ -1587,7 +1605,7 @@ String buildPendingReviewsJson() {
     body += "\",\"rating\":\"";
     body += ratingName(pending.rating);
     body += "\",\"reviewed_at\":\"";
-    body += currentReviewTimestamp();
+    body += pending.reviewedAt;
     body += "\",\"event_id\":\"";
     body += eventId;
     body += "\"}";

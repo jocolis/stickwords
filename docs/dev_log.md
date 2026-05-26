@@ -779,3 +779,22 @@
 
 下一步：
 - 用户确认设计文档后，进入实现计划阶段。
+## 2026-05-26 Stage 5D implementation: offline selection and append-only pending reviews
+
+Completed:
+- Strengthened the firmware source test for offline cached-card selection so new-card reserve is used only when no review card is due.
+- Updated `selectOfflineDueCards()` to first select due review cards by RTC time, and only fall back to cached `new` cards when that selection is empty.
+- Changed M5Stick pending reviews from same-word replacement to append-only events, so repeated offline reviews of the same word can be uploaded as multiple events.
+- Stored `reviewed_at` on each pending event at queue time, rather than recomputing one timestamp for the whole upload payload.
+- Added a legacy pending-review reader so old flash entries using the previous struct shape are not discarded solely because the struct changed.
+
+Verification:
+- Focused RED tests failed for old same-word replacement and for the unguarded new-card reserve loop before implementation.
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- `git diff --check` reported no whitespace errors; PowerShell showed only LF/CRLF conversion warnings.
+
+Next:
+- Task 7: update cached scheduling metadata locally after each device review, so offline repeats can become due again during the same offline period.

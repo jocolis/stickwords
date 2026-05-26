@@ -280,22 +280,17 @@ class PendingReviewQueue:
         self.items = []
         self.sequence = 0
 
-    def queue(self, word_id, rating):
-        for item in self.items:
-            if not item["uploaded"] and item["wordId"] == word_id:
-                self.sequence += 1
-                item.update({"rating": rating, "sequence": self.sequence})
-                return
+    def queue(self, word_id, rating, reviewed_at="1970-01-01T00:00:00Z"):
         self.sequence += 1
         self.items.append({
             "wordId": word_id,
             "rating": rating,
+            "reviewedAt": reviewed_at,
             "sequence": self.sequence,
             "uploaded": False,
         })
 
     def build_json(self, boot_nonce, generated_at=""):
-        reviewed_at = generated_at if generated_at else "1970-01-01T00:00:00Z"
         reviews = []
         for item in self.items:
             if item["uploaded"]:
@@ -307,7 +302,7 @@ class PendingReviewQueue:
             reviews.append({
                 "word_id": item["wordId"],
                 "rating": item["rating"],
-                "reviewed_at": reviewed_at,
+                "reviewed_at": item["reviewedAt"],
                 "event_id": event_id,
             })
         return json.dumps({"device_id": "m5stick-c-plus", "reviews": reviews})
@@ -529,7 +524,8 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("esp_random", source)
         self.assertIn("reviewSequence", source)
         self.assertIn("uploadResponseAccepted(", source)
-        self.assertIn("replace pending review", source)
+        self.assertNotIn("replace pending review", source)
+        self.assertIn("char reviewedAt[kMaxTimestampLength]", source)
         self.assertIn("parseJsonStringAt(", source)
         self.assertIn("escaped = true", source)
 
@@ -664,6 +660,7 @@ class FirmwareProjectTests(unittest.TestCase):
         source = firmware_source()
         parse_body = firmware_function_body(source, "parseDeviceTasksJson")
         timestamp_body = firmware_function_body(source, "currentReviewTimestamp")
+        queue_body = firmware_function_body(source, "queuePendingReview")
         reviews_body = firmware_function_body(source, "buildPendingReviewsJson")
 
         self.assertNotIn("2026-05-24T00:00:00Z", source)
@@ -671,7 +668,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("serverGeneratedAt[0] != '\\0'", timestamp_body)
         self.assertIn("return String(serverGeneratedAt)", timestamp_body)
         self.assertIn("1970-01-01T00:00:00Z", timestamp_body)
-        self.assertIn("currentReviewTimestamp()", reviews_body)
+        self.assertIn("currentReviewTimestamp()", queue_body)
 
         ok, generated_at, cards = parse_device_tasks_json(
             '{"generated_at":"2026-05-24T09:30:00Z",'
@@ -682,11 +679,11 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertEqual(cards[0]["word"], "alpha")
 
         queue = PendingReviewQueue()
-        queue.queue("w1", "good")
+        queue.queue("w1", "good", generated_at)
         synced = json.loads(queue.build_json(0x1A2B3C, generated_at))
         fallback = json.loads(queue.build_json(0x1A2B3C, ""))
         self.assertEqual(synced["reviews"][0]["reviewed_at"], "2026-05-24T09:30:00Z")
-        self.assertEqual(fallback["reviews"][0]["reviewed_at"], "1970-01-01T00:00:00Z")
+        self.assertEqual(fallback["reviews"][0]["reviewed_at"], "2026-05-24T09:30:00Z")
 
     def test_stage5a_firmware_sets_and_logs_bm8563_rtc_from_generated_at(self):
         source = firmware_source()
@@ -914,9 +911,43 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("offlineCards", select_body)
         self.assertIn("syncedCards[syncedCardCount++] = card", select_body)
         self.assertIn("if (syncedCardCount == 0)", select_body)
+        self.assertLess(
+            select_body.index("if (syncedCardCount == 0)"),
+            select_body.index('std::strcmp(card.status, "new") == 0'),
+        )
         self.assertIn("selectOfflineDueCards()", setup_body)
         self.assertIn("selectOfflineDueCards()", fetch_body)
         self.assertIn('setStatusPage("RTC invalid", "sync needed")', select_body)
+
+    def test_stage5d_pending_reviews_append_multiple_events_per_word(self):
+        source = firmware_source()
+        queue_body = firmware_function_body(source, "queuePendingReview")
+        reviews_body = firmware_function_body(source, "buildPendingReviewsJson")
+
+        self.assertNotIn("replace pending review", queue_body)
+        self.assertNotIn("std::strcmp(existing.wordId, wordId) == 0", queue_body)
+        self.assertIn("PendingReview& pending = pendingReviews[pendingReviewCount++]", queue_body)
+        self.assertIn("currentReviewTimestamp()", queue_body)
+        self.assertIn("pending.reviewedAt", queue_body)
+        self.assertIn("pending.reviewedAt", reviews_body)
+        self.assertNotIn("currentReviewTimestamp()", reviews_body)
+
+        queue = PendingReviewQueue()
+        queue.queue("w1", "hard", "2026-05-24T09:30:00Z")
+        queue.queue("w1", "good", "2026-05-24T09:35:00Z")
+        self.assertEqual(len(queue.items), 2)
+        payload = json.loads(queue.build_json(0x1234))
+        self.assertEqual(
+            [review["event_id"] for review in payload["reviews"]],
+            [
+                "m5stick-c-plus-1234-1-w1",
+                "m5stick-c-plus-1234-2-w1",
+            ],
+        )
+        self.assertEqual(
+            [review["reviewed_at"] for review in payload["reviews"]],
+            ["2026-05-24T09:30:00Z", "2026-05-24T09:35:00Z"],
+        )
 
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()
@@ -966,27 +997,32 @@ class FirmwareProjectTests(unittest.TestCase):
         ))
         self.assertFalse(upload_response_accepted('{"accepted":3,"failed":0}', 3))
 
-    def test_stage4_same_pending_word_re_rate_replaces_queue_entry(self):
+    def test_stage4_same_pending_word_re_rate_appends_queue_entry(self):
         source = firmware_source()
         body = firmware_function_body(source, "queuePendingReview")
 
-        replacement_index = body.index("replace pending review")
-        append_index = body.index("PendingReview& pending = pendingReviews[pendingReviewCount++]")
-        self.assertLess(replacement_index, append_index)
-        self.assertIn("std::strcmp(existing.wordId, wordId) == 0", body)
-        self.assertIn("existing.rating = rating", body)
-        self.assertIn("existing.sequence = ++reviewSequence", body)
-        self.assertIn("return", body[replacement_index:append_index])
+        self.assertNotIn("replace pending review", body)
+        self.assertNotIn("std::strcmp(existing.wordId, wordId) == 0", body)
+        self.assertIn("PendingReview& pending = pendingReviews[pendingReviewCount++]", body)
 
         queue = PendingReviewQueue()
         queue.queue("w1", "hard")
         queue.queue("w1", "good")
-        self.assertEqual(len(queue.items), 1)
+        self.assertEqual(len(queue.items), 2)
         self.assertEqual(queue.items[0]["wordId"], "w1")
-        self.assertEqual(queue.items[0]["rating"], "good")
-        self.assertEqual(queue.items[0]["sequence"], 2)
+        self.assertEqual(queue.items[0]["rating"], "hard")
+        self.assertEqual(queue.items[0]["sequence"], 1)
+        self.assertEqual(queue.items[1]["wordId"], "w1")
+        self.assertEqual(queue.items[1]["rating"], "good")
+        self.assertEqual(queue.items[1]["sequence"], 2)
         payload = json.loads(queue.build_json(0x1234, "2026-05-24T09:30:00Z"))
-        self.assertEqual(payload["reviews"][0]["event_id"], "m5stick-c-plus-1234-2-w1")
+        self.assertEqual(
+            [review["event_id"] for review in payload["reviews"]],
+            [
+                "m5stick-c-plus-1234-1-w1",
+                "m5stick-c-plus-1234-2-w1",
+            ],
+        )
 
     def test_stage4_task_json_parser_survives_escaped_strings_and_braces(self):
         source = firmware_source()

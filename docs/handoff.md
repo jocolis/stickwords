@@ -158,7 +158,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
   - loads cached due cards when Wi-Fi or sync fails
-  - queues review results and persists the pending queue in ESP32 flash
+  - queues review results as append-only events and persists the pending queue in ESP32 flash
   - posts queued reviews to the PC backend after rating submission
   - keeps pending reviews when upload fails or the server response is not accepted
   - uploads persisted pending reviews on the next successful Wi-Fi boot
@@ -169,8 +169,9 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - The M5Stick must be on the same reachable LAN as the PC backend.
 - Windows firewall may block inbound access to port 8000 until allowed.
 - Firmware sync currently uses plain HTTP without authentication.
-- Firmware cached-task fallback only reuses the last synced due-card batch. It does not compute future due cards offline.
-- Firmware now sets and logs the M5StickC Plus BM8563 RTC from backend sync time, but it does not yet use RTC time for offline due-card scheduling.
+- Firmware offline fallback can select due cards from the most recently synced 7-day offline package using BM8563 RTC time.
+- Firmware offline scheduling is still limited to the cached package; it does not cache the full PC vocabulary.
+- Firmware does not yet update cached scheduling metadata after an offline rating, so same-offline-session repeat scheduling is the next implementation step.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
@@ -183,7 +184,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 ## Future Improvements
 
 - Automatic PC/backend discovery, for example via mDNS, UDP broadcast, or a setup-page helper that can provide the current LAN server URL without manual copying.
-- RTC-backed offline due-card scheduling: set the BM8563 RTC from the PC/backend during sync, persist enough scheduling metadata on the device, and use the RTC to decide whether cached future cards are due when Wi-Fi is unavailable.
+- Update cached scheduling metadata after an offline rating, so the same word can become due again during one offline period.
 
 ## Real-Device Validation Notes
 

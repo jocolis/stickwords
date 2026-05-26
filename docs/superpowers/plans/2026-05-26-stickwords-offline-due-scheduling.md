@@ -869,7 +869,7 @@ git commit -m "Select offline due cards from RTC"
 - Modify: `firmware/src/main.cpp`
 - Modify: `tests/test_firmware_project.py`
 
-- [ ] **Step 1: Update Python firmware queue model tests**
+- [x] **Step 1: Update Python firmware queue model tests**
 
 In `tests/test_firmware_project.py`, change `PendingReviewQueue.queue` to append every review instead of replacing same-word reviews:
 
@@ -932,7 +932,7 @@ Replace the old same-pending-word replacement test with:
         )
 ```
 
-- [ ] **Step 2: Run focused test and confirm RED**
+- [x] **Step 2: Run focused test and confirm RED**
 
 Run:
 
@@ -942,7 +942,7 @@ $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest test
 
 Expected: FAIL because `queuePendingReview` still replaces pending reviews per word and stores only milliseconds.
 
-- [ ] **Step 3: Change pending review struct**
+- [x] **Step 3: Change pending review struct**
 
 In `firmware/src/main.cpp`, replace:
 
@@ -956,7 +956,7 @@ with:
   char reviewedAt[kMaxTimestampLength];
 ```
 
-- [ ] **Step 4: Make `queuePendingReview` append events**
+- [x] **Step 4: Make `queuePendingReview` append events**
 
 Replace `queuePendingReview` with:
 
@@ -979,7 +979,7 @@ void queuePendingReview(const char* wordId, Rating rating) {
 }
 ```
 
-- [ ] **Step 5: Use each event timestamp in upload JSON**
+- [x] **Step 5: Use each event timestamp in upload JSON**
 
 In `buildPendingReviewsJson`, replace:
 
@@ -993,7 +993,7 @@ with:
     body += pending.reviewedAt;
 ```
 
-- [ ] **Step 6: Run firmware tests**
+- [x] **Step 6: Run firmware tests**
 
 Run:
 
@@ -1003,7 +1003,7 @@ $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest test
 
 Expected: PASS after updating any older tests that explicitly expected same-word replacement.
 
-- [ ] **Step 7: Commit Task 6**
+- [x] **Step 7: Commit Task 6**
 
 ```powershell
 git add firmware/src/main.cpp tests/test_firmware_project.py
