@@ -87,17 +87,20 @@ def process_review_events(
     errors: list[str] = []
 
     normalized_events = [
-        ReviewEvent(
-            review_event_id=raw_event.review_event_id,
-            word_id=raw_event.word_id,
-            rating=raw_event.rating,
-            reviewed_at=normalize_dt(raw_event.reviewed_at),
+        (
+            index,
+            ReviewEvent(
+                review_event_id=raw_event.review_event_id,
+                word_id=raw_event.word_id,
+                rating=raw_event.rating,
+                reviewed_at=normalize_dt(raw_event.reviewed_at),
+            ),
         )
-        for raw_event in events
+        for index, raw_event in enumerate(events)
     ]
-    normalized_events.sort(key=lambda event: (event.reviewed_at, event.review_event_id))
+    normalized_events.sort(key=lambda item: (item[1].reviewed_at, item[0]))
 
-    for event in normalized_events:
+    for _, event in normalized_events:
         if event.review_event_id in processed_ids:
             skipped_duplicate += 1
             continue

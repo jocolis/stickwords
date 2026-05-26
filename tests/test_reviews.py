@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from stickwords.models import RATING_GOOD, Word
+from stickwords.models import RATING_FORGOT, RATING_GOOD, STATUS_REVIEW, Word
 from stickwords.reviews import ReviewEvent, ReviewEventStore, process_review_events
 from tests.temp_utils import workspace_temp_dir
 
@@ -112,6 +112,34 @@ class ReviewEventTests(unittest.TestCase):
             self.assertEqual(result.applied, 2)
             self.assertEqual(result.words[0].review_count, 2)
             self.assertEqual(result.words[0].last_reviewed_at, later.reviewed_at)
+
+    def test_same_timestamp_events_keep_payload_order(self):
+        now = datetime(2026, 5, 26, 8, 0, tzinfo=timezone.utc)
+        word = Word.new_word("w-1", "abandon", "give up", "Do not abandon it.", now)
+        first = ReviewEvent(
+            review_event_id="m5stick-c-plus-1234-2-w-1",
+            word_id="w-1",
+            rating=RATING_FORGOT,
+            reviewed_at=now,
+        )
+        second = ReviewEvent(
+            review_event_id="m5stick-c-plus-1234-10-w-1",
+            word_id="w-1",
+            rating=RATING_GOOD,
+            reviewed_at=now,
+        )
+
+        with workspace_temp_dir() as temp_dir:
+            event_store = ReviewEventStore(temp_dir / "review_events.csv")
+            result = process_review_events(
+                words=[word],
+                events=[first, second],
+                event_store=event_store,
+            )
+
+            self.assertEqual(result.applied, 2)
+            self.assertEqual(result.words[0].review_count, 2)
+            self.assertEqual(result.words[0].status, STATUS_REVIEW)
 
 
 if __name__ == "__main__":
