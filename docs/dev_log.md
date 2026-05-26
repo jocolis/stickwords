@@ -798,3 +798,24 @@ Verification:
 
 Next:
 - Task 7: update cached scheduling metadata locally after each device review, so offline repeats can become due again during the same offline period.
+
+## 2026-05-26 Stage 5D implementation: local offline scheduling after rating
+
+Completed:
+- Added device-side timestamp add helpers for UTC RTC timestamps.
+- Added a small local review scheduler in firmware:
+  - `forgot`: status `learning`, lapse count increases, ease decreases, next due in 10 minutes.
+  - `hard`: status `review`, ease decreases slightly, interval grows conservatively.
+  - `good`: status `review`, ease increases slightly, interval grows from 1 day or by ease.
+- After a rating, firmware updates the active `syncedCards` entry, writes the matching `offlineCards` entry, and saves the cache when RTC time is valid.
+- Kept timestamp formatting to one trailing `Z`; `formatRtcTimestamp()` already includes it.
+
+Verification:
+- Focused RED test failed before `applyLocalReview()` existed.
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+Next:
+- Task 8: run full repository verification and prepare a manual M5Stick validation script for the complete offline due scheduling flow.

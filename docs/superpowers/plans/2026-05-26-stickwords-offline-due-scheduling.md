@@ -1018,7 +1018,7 @@ git commit -m "Append pending review events on device"
 - Modify: `firmware/src/main.cpp`
 - Modify: `tests/test_firmware_project.py`
 
-- [ ] **Step 1: Write failing source test for local scheduling**
+- [x] **Step 1: Write failing source test for local scheduling**
 
 Add this test to `tests/test_firmware_project.py`:
 
@@ -1041,7 +1041,7 @@ Add this test to `tests/test_firmware_project.py`:
         self.assertIn("saveCachedTasks()", submit_body)
 ```
 
-- [ ] **Step 2: Run focused test and confirm RED**
+- [x] **Step 2: Run focused test and confirm RED**
 
 Run:
 
@@ -1051,7 +1051,7 @@ $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest test
 
 Expected: FAIL because local scheduling helpers do not exist.
 
-- [ ] **Step 3: Add small math helpers**
+- [x] **Step 3: Add small math helpers**
 
 Add after `ratingName`:
 
@@ -1065,7 +1065,7 @@ float maxFloat(float left, float right) {
 }
 ```
 
-- [ ] **Step 4: Add timestamp add helpers**
+- [x] **Step 4: Add timestamp add helpers**
 
 Add simple UTC timestamp add helpers near other RTC helpers:
 
@@ -1100,7 +1100,7 @@ void addDaysToTimestamp(RtcTimestamp* timestamp, uint16_t days) {
 }
 ```
 
-- [ ] **Step 5: Apply scheduler locally**
+- [x] **Step 5: Apply scheduler locally**
 
 Add:
 
@@ -1135,7 +1135,7 @@ void applyLocalReview(DeviceCard& card, Rating rating, const RtcTimestamp& revie
 }
 ```
 
-- [ ] **Step 6: Call scheduler after rating**
+- [x] **Step 6: Call scheduler after rating**
 
 In `submitRating`, after `queuePendingReview(currentWordId(), selectedRating);`, add:
 
@@ -1153,7 +1153,7 @@ In `submitRating`, after `queuePendingReview(currentWordId(), selectedRating);`,
   }
 ```
 
-- [ ] **Step 7: Run firmware tests and PlatformIO build**
+- [x] **Step 7: Run firmware tests and PlatformIO build**
 
 Run:
 
@@ -1166,7 +1166,7 @@ cd ..
 
 Expected: PASS and SUCCESS.
 
-- [ ] **Step 8: Commit Task 7**
+- [x] **Step 8: Commit Task 7**
 
 ```powershell
 git add firmware/src/main.cpp tests/test_firmware_project.py

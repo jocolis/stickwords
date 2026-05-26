@@ -186,6 +186,14 @@ const char* ratingName(Rating rating) {
   return "forgot";
 }
 
+float minFloat(float left, float right) {
+  return left < right ? left : right;
+}
+
+float maxFloat(float left, float right) {
+  return left > right ? left : right;
+}
+
 const char* pageName(Page page) {
   switch (page) {
     case Page::Status:
@@ -1328,6 +1336,37 @@ String formatRtcTimestamp(const RtcTimestamp& timestamp) {
   return String(buffer);
 }
 
+void addMinutesToTimestamp(RtcTimestamp* timestamp, uint16_t minutes) {
+  if (timestamp == nullptr) {
+    return;
+  }
+
+  const uint16_t totalMinutes = static_cast<uint16_t>(timestamp->minute) + minutes;
+  timestamp->minute = static_cast<uint8_t>(totalMinutes % 60);
+  timestamp->hour += static_cast<uint8_t>(totalMinutes / 60);
+  while (timestamp->hour >= 24) {
+    timestamp->hour -= 24;
+    timestamp->date += 1;
+    const uint8_t monthDays = daysInMonth(timestamp->year, timestamp->month);
+    if (timestamp->date <= monthDays) {
+      continue;
+    }
+    timestamp->date = 1;
+    timestamp->month += 1;
+    if (timestamp->month <= 12) {
+      continue;
+    }
+    timestamp->month = 1;
+    timestamp->year += 1;
+  }
+}
+
+void addDaysToTimestamp(RtcTimestamp* timestamp, uint16_t days) {
+  for (uint16_t i = 0; i < days; ++i) {
+    addMinutesToTimestamp(timestamp, 24 * 60);
+  }
+}
+
 int compareRtcTimestamp(const RtcTimestamp& left, const RtcTimestamp& right) {
   if (left.year != right.year) return left.year < right.year ? -1 : 1;
   if (left.month != right.month) return left.month < right.month ? -1 : 1;
@@ -1347,6 +1386,37 @@ bool isCardDue(const DeviceCard& card, const RtcTimestamp& now) {
     return false;
   }
   return compareRtcTimestamp(due, now) <= 0;
+}
+
+void applyLocalReview(DeviceCard& card, Rating rating, const RtcTimestamp& reviewedAt) {
+  card.reviewCount += 1;
+  RtcTimestamp due = reviewedAt;
+
+  if (rating == Rating::Forgot) {
+    copyBounded(card.status, sizeof(card.status), "learning");
+    card.lapses += 1;
+    card.ease = maxFloat(1.3F, card.ease - 0.2F);
+    card.intervalDays = 0;
+    addMinutesToTimestamp(&due, 10);
+  } else if (rating == Rating::Hard) {
+    copyBounded(card.status, sizeof(card.status), "review");
+    card.ease = maxFloat(1.3F, card.ease - 0.05F);
+    card.intervalDays =
+        static_cast<int16_t>(maxFloat(1.0F, roundf(card.intervalDays * 1.2F)));
+    addDaysToTimestamp(&due, static_cast<uint16_t>(card.intervalDays));
+  } else {
+    copyBounded(card.status, sizeof(card.status), "review");
+    card.ease = minFloat(3.0F, card.ease + 0.05F);
+    if (card.intervalDays == 0) {
+      card.intervalDays = 1;
+    } else {
+      card.intervalDays =
+          static_cast<int16_t>(maxFloat(1.0F, roundf(card.intervalDays * card.ease)));
+    }
+    addDaysToTimestamp(&due, static_cast<uint16_t>(card.intervalDays));
+  }
+
+  copyBounded(card.dueAt, sizeof(card.dueAt), formatRtcTimestamp(due));
 }
 
 String formatRtcDate(const RtcTimestamp& timestamp) {
@@ -1728,6 +1798,17 @@ void submitRating() {
   result.reviewCount += 1;
   lastSubmittedIndex = static_cast<int>(currentCardIndex);
   queuePendingReview(currentWordId(), selectedRating);
+  const RtcTimestamp reviewedAt = readRtcTimestamp();
+  if (isValidRtcTimestamp(reviewedAt)) {
+    applyLocalReview(syncedCards[currentCardIndex], selectedRating, reviewedAt);
+    for (size_t i = 0; i < offlineCardCount; ++i) {
+      if (std::strcmp(offlineCards[i].id, syncedCards[currentCardIndex].id) == 0) {
+        offlineCards[i] = syncedCards[currentCardIndex];
+        break;
+      }
+    }
+    saveCachedTasks();
+  }
   uploadPendingReviews();
 
   if (isReRating && returnAfterReRatingIndex >= 0) {

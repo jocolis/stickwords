@@ -949,6 +949,30 @@ class FirmwareProjectTests(unittest.TestCase):
             ["2026-05-24T09:30:00Z", "2026-05-24T09:35:00Z"],
         )
 
+    def test_stage5d_firmware_updates_cached_schedule_after_rating(self):
+        source = firmware_source()
+        apply_body = firmware_function_body(source, "applyLocalReview")
+        submit_body = firmware_function_body(source, "submitRating")
+
+        self.assertIn("void applyLocalReview(DeviceCard& card, Rating rating", source)
+        self.assertIn("float minFloat(float left, float right)", source)
+        self.assertIn("float maxFloat(float left, float right)", source)
+        self.assertIn("addMinutesToTimestamp", source)
+        self.assertIn("addDaysToTimestamp", source)
+        self.assertIn("card.reviewCount += 1", apply_body)
+        self.assertIn('copyBounded(card.status, sizeof(card.status), "learning")', apply_body)
+        self.assertIn('copyBounded(card.status, sizeof(card.status), "review")', apply_body)
+        self.assertIn("card.lapses += 1", apply_body)
+        self.assertIn("card.ease = maxFloat(1.3F, card.ease - 0.2F)", apply_body)
+        self.assertIn("card.ease = minFloat(3.0F, card.ease + 0.05F)", apply_body)
+        self.assertIn("addMinutesToTimestamp(&due, 10)", apply_body)
+        self.assertIn("addDaysToTimestamp(&due", apply_body)
+        self.assertIn("copyBounded(card.dueAt, sizeof(card.dueAt), formatRtcTimestamp(due))", apply_body)
+        self.assertNotIn('formatRtcTimestamp(due) + "Z"', apply_body)
+        self.assertIn("applyLocalReview(syncedCards[currentCardIndex], selectedRating", submit_body)
+        self.assertIn("offlineCards[i] = syncedCards[currentCardIndex]", submit_body)
+        self.assertIn("saveCachedTasks()", submit_body)
+
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()
         setup_body = firmware_function_body(source, "setup")

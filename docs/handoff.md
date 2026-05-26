@@ -162,6 +162,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - posts queued reviews to the PC backend after rating submission
   - keeps pending reviews when upload fails or the server response is not accepted
   - uploads persisted pending reviews on the next successful Wi-Fi boot
+  - updates cached card scheduling metadata after a device-side rating when RTC time is valid
 
 ## Known Limits
 
@@ -171,7 +172,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware sync currently uses plain HTTP without authentication.
 - Firmware offline fallback can select due cards from the most recently synced 7-day offline package using BM8563 RTC time.
 - Firmware offline scheduling is still limited to the cached package; it does not cache the full PC vocabulary.
-- Firmware does not yet update cached scheduling metadata after an offline rating, so same-offline-session repeat scheduling is the next implementation step.
+- Device-side scheduling is intentionally a small SM-2 approximation; the PC backend remains the source of truth after pending events upload.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
