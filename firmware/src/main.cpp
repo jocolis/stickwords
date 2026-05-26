@@ -664,7 +664,10 @@ bool loadCachedTasks() {
   const String generatedAt = storage.getString("generated", "");
   storage.end();
 
-  if (storedCount == 0 || readBytes != expectedBytes) {
+  if (storedCount == 0 && storedOfflineCount == 0) {
+    return false;
+  }
+  if (storedCount > 0 && readBytes != expectedBytes) {
     return false;
   }
   if (storedOfflineCount > 0 && readOfflineBytes != expectedOfflineBytes) {
@@ -1360,7 +1363,11 @@ bool fetchDeviceTasks() {
 
   if (syncedCardCount == 0) {
     Serial.println("No due cards");
-    clearCachedTasks();
+    if (offlineCardCount > 0) {
+      saveCachedTasks();
+    } else {
+      clearCachedTasks();
+    }
     drawStatusMessage("No due cards");
     setStatusPage("No due cards");
     return true;

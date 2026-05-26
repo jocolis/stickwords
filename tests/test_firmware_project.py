@@ -849,6 +849,7 @@ class FirmwareProjectTests(unittest.TestCase):
         parse_body = firmware_function_body(source, "parseDeviceTasksJson")
         save_body = firmware_function_body(source, "saveCachedTasks")
         load_body = firmware_function_body(source, "loadCachedTasks")
+        fetch_body = firmware_function_body(source, "fetchDeviceTasks")
 
         self.assertIn("constexpr size_t kMaxImmediateCards = 20", source)
         self.assertIn("constexpr size_t kMaxOfflineCards = 40", source)
@@ -872,6 +873,10 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("storage.putBytes(\"offline\"", save_body)
         self.assertIn("storage.getUInt(\"offline_count\"", load_body)
         self.assertIn("storage.getBytes(\"offline\"", load_body)
+        self.assertIn("storedCount == 0 && storedOfflineCount == 0", load_body)
+        self.assertIn("offlineCardCount = storedOfflineCount", load_body)
+        self.assertIn("if (offlineCardCount > 0)", fetch_body)
+        self.assertLess(fetch_body.index("saveCachedTasks()"), fetch_body.index("clearCachedTasks()"))
 
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()
