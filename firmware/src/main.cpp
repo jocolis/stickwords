@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <esp_system.h>
 
@@ -72,6 +73,13 @@ constexpr float kOrientationThreshold = 0.45F;
 constexpr float kShakeThreshold = 1.65F;
 constexpr float kShakeReleaseThreshold = 1.25F;
 
+struct LegacyDeviceCard {
+  char id[kMaxWordIdLength];
+  char word[kMaxWordLength];
+  char meaning[kMaxMeaningLength];
+  char example[kMaxExampleLength];
+};
+
 struct DeviceCard {
   char id[kMaxWordIdLength];
   char word[kMaxWordLength];
@@ -83,6 +91,11 @@ struct DeviceCard {
   float ease;
   int16_t intervalDays;
   uint16_t lapses;
+};
+
+struct CardArrayParseResult {
+  bool valid;
+  size_t count;
 };
 
 struct PendingReview {
@@ -631,15 +644,41 @@ Rating nextRating(Rating rating) {
 
 void resetReviewSet();
 
+void copyLegacyCard(DeviceCard* card, const LegacyDeviceCard& legacy, const String& generatedAt) {
+  copyBounded(card->id, sizeof(card->id), String(legacy.id));
+  copyBounded(card->word, sizeof(card->word), String(legacy.word));
+  copyBounded(card->meaning, sizeof(card->meaning), String(legacy.meaning));
+  copyBounded(card->example, sizeof(card->example), String(legacy.example));
+  copyBounded(card->status, sizeof(card->status), "review");
+  copyBounded(card->dueAt, sizeof(card->dueAt), generatedAt);
+  card->reviewCount = 0;
+  card->ease = 2.5F;
+  card->intervalDays = 0;
+  card->lapses = 0;
+}
+
 void saveCachedTasks() {
   storage.begin("stickwords", false);
-  storage.putUInt("card_count", static_cast<uint32_t>(syncedCardCount));
+  storage.remove("card_count");
+  storage.remove("offline_count");
+  storage.remove("cards");
+  storage.remove("offline");
   storage.putString("generated", serverGeneratedAt);
-  storage.putBytes("cards", syncedCards, sizeof(DeviceCard) * syncedCardCount);
-  storage.putUInt("offline_count", static_cast<uint32_t>(offlineCardCount));
-  storage.putBytes("offline", offlineCards, sizeof(DeviceCard) * offlineCardCount);
+  const size_t expectedCardBytes = sizeof(DeviceCard) * syncedCardCount;
+  const size_t savedCardBytes = syncedCardCount == 0
+                                    ? 0
+                                    : storage.putBytes("cards", syncedCards, expectedCardBytes);
+  const size_t expectedOfflineBytes = sizeof(DeviceCard) * offlineCardCount;
+  const size_t savedOfflineBytes = offlineCardCount == 0
+                                       ? 0
+                                       : storage.putBytes("offline", offlineCards, expectedOfflineBytes);
+  const size_t savedCardCount = savedCardBytes == expectedCardBytes ? syncedCardCount : 0;
+  const size_t savedOfflineCount = savedOfflineBytes == expectedOfflineBytes ? offlineCardCount : 0;
+  storage.putUInt("card_count", static_cast<uint32_t>(savedCardCount));
+  storage.putUInt("offline_count", static_cast<uint32_t>(savedOfflineCount));
   storage.end();
-  Serial.printf("Cached cards=%u\n", static_cast<unsigned>(syncedCardCount));
+  Serial.printf("Cached cards=%u offline=%u\n", static_cast<unsigned>(savedCardCount),
+                static_cast<unsigned>(savedOfflineCount));
 }
 
 bool loadCachedTasks() {
@@ -649,30 +688,48 @@ bool loadCachedTasks() {
     storedCount = kMaxSyncedCards;
   }
 
-  const size_t expectedBytes = sizeof(DeviceCard) * storedCount;
-  const size_t readBytes = storedCount == 0
-                               ? 0
-                               : storage.getBytes("cards", syncedCards, expectedBytes);
   uint32_t storedOfflineCount = storage.getUInt("offline_count", 0);
   if (storedOfflineCount > kMaxOfflineCards) {
     storedOfflineCount = kMaxOfflineCards;
   }
+  const size_t cardBytesLength = storedCount == 0 ? 0 : storage.getBytesLength("cards");
+  const size_t expectedBytes = sizeof(DeviceCard) * storedCount;
+  const size_t expectedLegacyBytes = sizeof(LegacyDeviceCard) * storedCount;
+  const size_t readBytes = storedCount == 0 || cardBytesLength != expectedBytes
+                               ? 0
+                               : storage.getBytes("cards", syncedCards, expectedBytes);
   const size_t expectedOfflineBytes = sizeof(DeviceCard) * storedOfflineCount;
   const size_t readOfflineBytes = storedOfflineCount == 0
                                       ? 0
                                       : storage.getBytes("offline", offlineCards, expectedOfflineBytes);
   const String generatedAt = storage.getString("generated", "");
-  storage.end();
 
   if (storedCount == 0 && storedOfflineCount == 0) {
+    storage.end();
     return false;
   }
-  if (storedCount > 0 && readBytes != expectedBytes) {
+  if (storedCount > 0 && cardBytesLength == expectedLegacyBytes) {
+    LegacyDeviceCard* legacyCards =
+        static_cast<LegacyDeviceCard*>(malloc(expectedLegacyBytes));
+    if (legacyCards == nullptr ||
+        storage.getBytes("cards", legacyCards, expectedLegacyBytes) != expectedLegacyBytes) {
+      free(legacyCards);
+      storage.end();
+      return false;
+    }
+    for (size_t i = 0; i < storedCount; ++i) {
+      copyLegacyCard(&syncedCards[i], legacyCards[i], generatedAt);
+    }
+    free(legacyCards);
+  } else if (storedCount > 0 && readBytes != expectedBytes) {
+    storage.end();
     return false;
   }
   if (storedOfflineCount > 0 && readOfflineBytes != expectedOfflineBytes) {
+    storage.end();
     return false;
   }
+  storage.end();
 
   syncedCardCount = storedCount;
   offlineCardCount = storedOfflineCount;
@@ -1037,19 +1094,20 @@ int findJsonObjectEnd(const String& body, int objectStart, int limit) {
   return -1;
 }
 
-size_t parseCardArrayJson(const String& body, const char* arrayKey, DeviceCard* cards, size_t maxCards) {
+CardArrayParseResult parseCardArrayJson(const String& body, const char* arrayKey,
+                                        DeviceCard* cards, size_t maxCards) {
   const String keyMarker = String("\"") + arrayKey + "\"";
   const int keyIndex = body.indexOf(keyMarker);
   if (keyIndex < 0) {
-    return 0;
+    return {false, 0};
   }
   const int arrayStart = body.indexOf('[', keyIndex);
   if (arrayStart < 0) {
-    return 0;
+    return {false, 0};
   }
   const int arrayEnd = findJsonArrayEnd(body, arrayStart);
   if (arrayEnd < 0) {
-    return 0;
+    return {false, 0};
   }
 
   size_t cardCount = 0;
@@ -1061,7 +1119,7 @@ size_t parseCardArrayJson(const String& body, const char* arrayKey, DeviceCard* 
     }
     const int objectEnd = findJsonObjectEnd(body, objectStart, arrayEnd);
     if (objectEnd < 0 || objectEnd > arrayEnd) {
-      break;
+      return {false, 0};
     }
 
     const String object = body.substring(objectStart, objectEnd + 1);
@@ -1082,17 +1140,27 @@ size_t parseCardArrayJson(const String& body, const char* arrayKey, DeviceCard* 
     cursor = objectEnd + 1;
   }
 
-  return cardCount;
+  return {true, cardCount};
 }
 
 bool parseDeviceTasksJson(const String& body) {
   syncedCardCount = 0;
   offlineCardCount = 0;
   copyBounded(serverGeneratedAt, sizeof(serverGeneratedAt), jsonStringValue(body, "generated_at"));
-  syncedCardCount = parseCardArrayJson(body, "tasks", syncedCards, kMaxImmediateCards);
+  const CardArrayParseResult tasksResult =
+      parseCardArrayJson(body, "tasks", syncedCards, kMaxImmediateCards);
+  if (!tasksResult.valid) {
+    return false;
+  }
+  syncedCardCount = tasksResult.count;
   const int offlineStart = body.indexOf("\"offline\"");
   if (offlineStart >= 0) {
-    offlineCardCount = parseCardArrayJson(body.substring(offlineStart), "cards", offlineCards, kMaxOfflineCards);
+    const CardArrayParseResult offlineResult =
+        parseCardArrayJson(body.substring(offlineStart), "cards", offlineCards, kMaxOfflineCards);
+    if (!offlineResult.valid) {
+      return false;
+    }
+    offlineCardCount = offlineResult.count;
   }
   if (offlineCardCount == 0 && syncedCardCount > 0) {
     for (size_t i = 0; i < syncedCardCount && i < kMaxOfflineCards; ++i) {
@@ -1105,7 +1173,7 @@ bool parseDeviceTasksJson(const String& body) {
   // jsonStringValue(object, "due_at"), jsonIntValue(object, "review_count", 0),
   // jsonFloatValue(object, "ease", 2.5F), jsonIntValue(object, "interval_days", 0),
   // jsonIntValue(object, "lapses", 0), "offline", "cards".
-  return body.indexOf("\"tasks\"") >= 0;
+  return true;
 }
 
 int twoDigitsAt(const String& value, int index) {
