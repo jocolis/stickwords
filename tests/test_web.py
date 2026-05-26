@@ -1,7 +1,7 @@
 import io
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 from stickwords.service import StickWordsService
@@ -316,8 +316,48 @@ class WebTests(unittest.TestCase):
                         "word": "abandon",
                         "meaning": "give up",
                         "example": "Do not abandon your plan.",
+                        "status": "new",
+                        "due_at": "2026-05-24T12:00:00Z",
+                        "review_count": 0,
+                        "ease": 2.5,
+                        "interval_days": 0,
+                        "lapses": 0,
                     }
                 ],
+            )
+            self.assertEqual(payload["offline"]["horizon_days"], 7)
+            self.assertEqual(payload["offline"]["max_new"], 20)
+            self.assertEqual(payload["offline"]["cards"], payload["tasks"])
+
+    def test_get_device_tasks_includes_future_due_offline_package(self):
+        now = datetime(2026, 5, 26, 8, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            due_now = service.add_word("alpha", "first", "Alpha example.")
+            due_future = service.add_word("beta", "second", "Beta example.")
+            too_late = service.add_word("gamma", "third", "Gamma example.")
+            suspended = service.add_word("delta", "fourth", "Delta example.")
+
+            words = service.load_words()
+            by_id = {word.id: word for word in words}
+            by_id[due_now.id].status = "review"
+            by_id[due_now.id].due_at = now
+            by_id[due_future.id].status = "review"
+            by_id[due_future.id].due_at = now + timedelta(days=7)
+            by_id[too_late.id].status = "review"
+            by_id[too_late.id].due_at = now + timedelta(days=8)
+            by_id[suspended.id].status = "suspended"
+            service.save_words(words)
+
+            app = create_app(service)
+            status, _, body = call_app(app, "GET", "/api/device/tasks", query_string="limit=1")
+
+            payload = json.loads(body)
+            self.assertEqual(status, "200 OK")
+            self.assertEqual([card["id"] for card in payload["tasks"]], [due_now.id])
+            self.assertEqual(
+                [card["id"] for card in payload["offline"]["cards"]],
+                [due_now.id, due_future.id],
             )
 
     def test_get_device_tasks_respects_limit(self):

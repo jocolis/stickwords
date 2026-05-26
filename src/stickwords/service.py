@@ -21,7 +21,10 @@ from .models import (
     parse_dt,
 )
 from .reviews import ReviewEvent, ReviewEventStore, process_review_events
-from .scheduler import get_today_tasks as schedule_today_tasks
+from .scheduler import (
+    get_offline_package as schedule_offline_package,
+    get_today_tasks as schedule_today_tasks,
+)
 from .storage import VocabStore
 
 
@@ -142,20 +145,40 @@ class StickWordsService:
             max_new=max_new,
         )
 
+    def _device_card_payload(self, word: Word) -> dict:
+        return {
+            "id": word.id,
+            "word": word.word,
+            "meaning": word.meaning,
+            "example": word.example,
+            "status": word.status,
+            "due_at": format_dt(word.due_at),
+            "review_count": word.review_count,
+            "ease": word.ease,
+            "interval_days": word.interval_days,
+            "lapses": word.lapses,
+        }
+
     def device_tasks_payload(self, limit: int = 20) -> dict:
         limit = max(0, min(limit, 50))
-        tasks = self.get_today_tasks(max_due=limit, max_new=limit)
+        now = self.now()
+        words = self.load_words()
+        tasks = schedule_today_tasks(words, now, max_due=limit, max_new=limit)
+        offline_cards = schedule_offline_package(
+            words,
+            now,
+            horizon_days=7,
+            max_due=20,
+            max_new=20,
+        )
         return {
-            "generated_at": format_dt(self.now()),
-            "tasks": [
-                {
-                    "id": word.id,
-                    "word": word.word,
-                    "meaning": word.meaning,
-                    "example": word.example,
-                }
-                for word in tasks[:limit]
-            ],
+            "generated_at": format_dt(now),
+            "tasks": [self._device_card_payload(word) for word in tasks[:limit]],
+            "offline": {
+                "horizon_days": 7,
+                "max_new": 20,
+                "cards": [self._device_card_payload(word) for word in offline_cards],
+            },
         }
 
     def process_device_reviews(self, payload: dict) -> dict:
