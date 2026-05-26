@@ -913,6 +913,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn('std::strcmp(card.status, "new")', select_body)
         self.assertIn("offlineCards", select_body)
         self.assertIn("syncedCards[syncedCardCount++] = card", select_body)
+        self.assertIn("if (syncedCardCount == 0)", select_body)
         self.assertIn("selectOfflineDueCards()", setup_body)
         self.assertIn("selectOfflineDueCards()", fetch_body)
         self.assertIn('setStatusPage("RTC invalid", "sync needed")', select_body)
