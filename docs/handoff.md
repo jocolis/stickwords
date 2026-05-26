@@ -160,7 +160,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - caches the most recently synced due-card batch in ESP32 flash
   - loads cached due cards when Wi-Fi or sync fails
   - queues review results as append-only events and persists the pending queue in ESP32 flash
-  - posts queued reviews to the PC backend after rating submission
+  - avoids HTTP upload during rating submission so the next card appears without network delay
   - keeps pending reviews when upload fails or the server response is not accepted
   - uploads persisted pending reviews on the next successful Wi-Fi boot
   - updates cached card scheduling metadata after a device-side rating when RTC time is valid

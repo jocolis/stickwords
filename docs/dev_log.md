@@ -794,6 +794,25 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-05-26 Stage 5D polish: remove rating-page network delay
+
+Issue:
+- Real-device testing showed a 2 to 3 second pause after submitting a rating before the next word appeared.
+
+Root cause:
+- `submitRating()` synchronously called `uploadPendingReviews()` before advancing the UI. That HTTP POST blocked the M5Stick main loop.
+
+Fix:
+- Rating submission now only queues the append-only pending review, updates/saves local cache state, and advances to the next card.
+- Pending reviews remain persisted in flash and upload on the next successful Wi-Fi boot before fetching tasks.
+
+Verification:
+- Added a regression test proving `submitRating()` no longer calls `uploadPendingReviews()`, while setup still does.
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
 - `git diff --check` reported no whitespace errors; PowerShell showed only LF/CRLF conversion warnings.
 
 Next:

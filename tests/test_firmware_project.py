@@ -973,6 +973,15 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("offlineCards[i] = syncedCards[currentCardIndex]", submit_body)
         self.assertIn("saveCachedTasks()", submit_body)
 
+    def test_stage5d_rating_submission_does_not_block_on_http_upload(self):
+        source = firmware_source()
+        submit_body = firmware_function_body(source, "submitRating")
+        setup_body = firmware_function_body(source, "setup")
+
+        self.assertIn("queuePendingReview(currentWordId(), selectedRating)", submit_body)
+        self.assertNotIn("uploadPendingReviews()", submit_body)
+        self.assertIn("uploadPendingReviews()", setup_body)
+
     def test_stage4_event_ids_include_boot_nonce_and_increasing_sequence(self):
         source = firmware_source()
         setup_body = firmware_function_body(source, "setup")

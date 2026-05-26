@@ -1809,7 +1809,6 @@ void submitRating() {
     }
     saveCachedTasks();
   }
-  uploadPendingReviews();
 
   if (isReRating && returnAfterReRatingIndex >= 0) {
     currentCardIndex = static_cast<size_t>(returnAfterReRatingIndex);
