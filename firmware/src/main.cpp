@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <src/core/lv_disp.h>
 #include <src/core/lv_obj.h>
+#include <src/core/lv_refr.h>
 #include <src/font/lv_symbol_def.h>
 #include <src/hal/lv_hal_disp.h>
 #include <src/misc/lv_timer.h>
@@ -453,7 +454,6 @@ void updateAutoRotation(uint32_t now) {
   currentRotation = detectedRotation;
   M5.Display.setRotation(currentRotation);
   if (currentPage == Page::Clock) {
-    M5.Display.fillScreen(BLACK);
     if (clockScr != nullptr) {
       lv_obj_invalidate(clockScr);
     }
@@ -733,6 +733,7 @@ void drawClockPage() {
     lv_obj_invalidate(clockScr);
   }
   lv_timer_handler();
+  lv_refr_now(nullptr);
 }
 
 void drawWordPage() {

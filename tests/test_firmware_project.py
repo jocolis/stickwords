@@ -390,6 +390,7 @@ class FirmwareProjectTests(unittest.TestCase):
         clock_body = firmware_function_body(source, "drawClockPage")
 
         self.assertIn("#include <M5Unified.h>", source)
+        self.assertIn("#include <src/core/lv_refr.h>", source)
         self.assertIn("#include <src/widgets/lv_arc.h>", source)
         self.assertIn("#include <src/widgets/lv_label.h>", source)
         self.assertNotIn("#include <lvgl.h>", source)
@@ -427,6 +428,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("if (currentPage == Page::Clock)", render_body)
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("lv_obj_invalidate(clockScr)", source)
+        self.assertIn("lv_refr_now(nullptr)", source)
         self.assertIn("lv_obj_set_style_bg_opa(clockScr, LV_OPA_COVER, 0)", source)
         self.assertIn("lv_obj_remove_style_all(clockCheckCircle)", source)
         self.assertIn("lv_obj_set_style_bg_opa(clockCheckCircle, LV_OPA_COVER, 0)", source)
@@ -975,10 +977,10 @@ class FirmwareProjectTests(unittest.TestCase):
 
         self.assertIn("M5.Display.setRotation(currentRotation)", rotation_body)
         self.assertIn("currentPage == Page::Clock", rotation_body)
-        self.assertIn("M5.Display.fillScreen(BLACK)", rotation_body)
         self.assertIn("lv_obj_invalidate(clockScr)", rotation_body)
         self.assertIn("lastClockRefreshAt = 0", rotation_body)
         self.assertNotIn("createClockUI()", rotation_body)
+        self.assertNotIn("M5.Display.fillScreen(BLACK)", rotation_body)
 
     def test_stage5d_firmware_parses_and_caches_offline_card_metadata(self):
         source = firmware_source()

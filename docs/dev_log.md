@@ -919,13 +919,29 @@ Verification:
 ## 2026-05-31 Stage 6C fix: rotation reset and no-due return
 
 Completed:
-- Fixed a real-device regression where rotating on the LVGL clock page appeared to run Wi-Fi/sync again. Root cause was the previous rotation path calling `createClockUI()`, which deleted the active LVGL screen with `lv_obj_del(clockScr)` while it was being displayed. Rotation now only updates M5GFX rotation, clears the panel, invalidates the existing LVGL screen, and lets the normal render loop flush it.
+- Fixed a real-device regression where rotating on the LVGL clock page appeared to run Wi-Fi/sync again. Root cause was the previous rotation path calling `createClockUI()`, which deleted the active LVGL screen with `lv_obj_del(clockScr)` while it was being displayed. Rotation now only updates M5GFX rotation, invalidates the existing LVGL screen, and lets the normal render loop flush it.
 - Made `No due cards` return behavior explicit with `statusReturnsToClock` instead of relying on string comparison inside the Button A handler.
 - Let both short-press and long-press Button A return from the no-due status page to the clock, so a slightly long physical press does not feel like no response.
 
 Verification:
 - Focused Stage 6 regression tests passed:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_idle_and_no_due_status_return tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_rebuilds_lvgl_after_auto_rotation -v`
+- Full firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result: RAM 36.3%, Flash 90.2% of the configured firmware partition.
+
+## 2026-05-31 Stage 6D fix: avoid black screen on clock rotation
+
+Completed:
+- Removed the black-panel clear from the clock-page rotation path. Real-device testing showed the clear happened, but the LVGL redraw could fail afterward, leaving the clock page black.
+- Added `lv_refr_now(nullptr)` after clock invalidation so LVGL can force an immediate refresh after rotation and regular clock updates.
+- Kept the safer Stage 6C rule: do not delete or rebuild the active LVGL screen during rotation.
+
+Verification:
+- Focused Stage 6 rotation/render tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_page_uses_lvgl_without_stage5e_idle tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_rebuilds_lvgl_after_auto_rotation -v`
 - Full firmware source tests passed:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
