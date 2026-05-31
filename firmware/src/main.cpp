@@ -577,13 +577,14 @@ void createClockUI() {
   lv_obj_set_pos(clockCheckCircle, 10, 6);
   lv_obj_set_style_radius(clockCheckCircle, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_bg_color(clockCheckCircle, lv_color_hex(0x22C55E), 0);
-  lv_obj_set_style_bg_opa(clockCheckCircle, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(clockCheckCircle, 0, 0);
+  lv_obj_set_style_bg_opa(clockCheckCircle, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_color(clockCheckCircle, lv_color_hex(0x22C55E), 0);
+  lv_obj_set_style_border_width(clockCheckCircle, 2, 0);
   lv_obj_clear_flag(clockCheckCircle, LV_OBJ_FLAG_SCROLLABLE);
 
   clockCheckMark = lv_label_create(clockCheckCircle);
   lv_label_set_text(clockCheckMark, LV_SYMBOL_OK);
-  lv_obj_set_style_text_color(clockCheckMark, lv_color_white(), 0);
+  lv_obj_set_style_text_color(clockCheckMark, lv_color_hex(0x22C55E), 0);
   lv_obj_set_style_text_font(clockCheckMark, &lv_font_montserrat_12, 0);
   lv_obj_center(clockCheckMark);
 
@@ -609,7 +610,7 @@ void createClockUI() {
 
   clockColon = lv_label_create(clockScr);
   lv_label_set_text(clockColon, ":");
-  lv_obj_set_pos(clockColon, 78, 34);
+  lv_obj_set_pos(clockColon, 74, 34);
   lv_obj_set_style_text_font(clockColon, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockColon, lv_color_hex(0x8F839D), 0);
 
