@@ -317,12 +317,10 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("board = m5stick-c", config)
         self.assertIn("framework = arduino", config)
         self.assertIn("monitor_speed = 115200", config)
-        self.assertIn("m5stack/M5StickCPlus", config)
 
     def test_firmware_source_contains_stage3b_review_ui(self):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
 
-        self.assertIn("#include <M5StickCPlus.h>", source)
         self.assertIn("StickWords Stage 4 boot", source)
         self.assertIn("enum class Page", source)
         self.assertIn("Word", source)
@@ -343,9 +341,56 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("tryReRatePrevious", source)
         self.assertIn("Review saved word=", source)
         self.assertIn("Review overwritten word=", source)
-        self.assertIn("M5.Lcd.setRotation(currentRotation)", source)
-        self.assertIn("M5.Imu.Init()", source)
+        self.assertIn("M5.Display.setRotation(currentRotation)", source)
+        self.assertIn("cfg.internal_imu = true", source)
         self.assertIn("M5.IMU.getAccelData", source)
+
+    def test_stage6_platformio_uses_m5unified_and_lvgl(self):
+        config = (ROOT / "firmware" / "platformio.ini").read_text(encoding="utf-8")
+        lv_conf = ROOT / "firmware" / "include" / "lv_conf.h"
+
+        self.assertIn("m5stack/M5Unified", config)
+        self.assertIn("lvgl/lvgl@^8.3.11", config)
+        self.assertNotIn("m5stack/M5StickCPlus", config)
+        self.assertTrue(lv_conf.exists())
+        text = lv_conf.read_text(encoding="utf-8")
+        self.assertIn("#define LV_FONT_MONTSERRAT_12 1", text)
+        self.assertIn("#define LV_FONT_MONTSERRAT_14 1", text)
+        self.assertIn("#define LV_FONT_MONTSERRAT_18 1", text)
+        self.assertIn("#define LV_FONT_MONTSERRAT_24 1", text)
+        self.assertIn("#define LV_FONT_MONTSERRAT_48 1", text)
+
+    def test_stage6_clock_page_uses_lvgl_without_stage5e_idle(self):
+        source = firmware_source()
+        setup_body = firmware_function_body(source, "setup")
+        loop_body = firmware_function_body(source, "loop")
+        render_body = firmware_function_body(source, "render")
+        flush_body = firmware_function_body(source, "lvglFlushCb")
+        clock_body = firmware_function_body(source, "drawClockPage")
+
+        self.assertIn("#include <M5Unified.h>", source)
+        self.assertIn("#include <lvgl.h>", source)
+        self.assertNotIn("#include <M5StickCPlus.h>", source)
+        self.assertIn("lv_disp_draw_buf_t lvDrawBuf", source)
+        self.assertIn("lv_color_t lvBuf1[240 * 16]", source)
+        self.assertIn("lv_color_t lvBuf2[240 * 16]", source)
+        self.assertIn("void lvglFlushCb(", source)
+        self.assertIn("M5.Display.setSwapBytes(true)", flush_body)
+        self.assertIn("lv_disp_flush_ready", flush_body)
+        self.assertIn("createClockUI()", source)
+        self.assertIn("updateClockUI()", source)
+        self.assertIn("lv_font_montserrat_48", source)
+        self.assertIn("lv_arc_create", source)
+        self.assertIn("lv_label_create", source)
+        self.assertIn("DUE", source)
+        self.assertIn("lv_init()", setup_body)
+        self.assertIn("lv_disp_drv_register", setup_body)
+        self.assertIn("if (currentPage == Page::Clock)", loop_body)
+        self.assertIn("lv_timer_handler()", loop_body)
+        self.assertIn("drawClockPage()", render_body)
+        self.assertIn("updateClockUI()", clock_body)
+        self.assertIn("constexpr uint32_t kIdlePowerOffMs = 180000", source)
+        self.assertNotIn("kIdleClockReturnMs", source)
 
     def test_stage4_firmware_does_not_fallback_to_sample_cards(self):
         source = firmware_source()
