@@ -667,6 +667,9 @@ void drawStatusPage() {
 
 void drawClockPage() {
   updateClockUI();
+  if (clockScr != nullptr) {
+    lv_obj_invalidate(clockScr);
+  }
   lv_timer_handler();
 }
 
@@ -781,6 +784,11 @@ void render() {
   }
 
   needsRender = false;
+  if (currentPage == Page::Clock) {
+    drawClockPage();
+    return;
+  }
+
   M5.Display.fillScreen(BLACK);
   M5.Display.setCursor(8, 8);
   M5.Display.setTextColor(WHITE, BLACK);

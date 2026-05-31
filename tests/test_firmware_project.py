@@ -394,6 +394,18 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("constexpr uint32_t kIdlePowerOffMs = 180000", source)
         self.assertNotIn("kIdleClockReturnMs", source)
 
+    def test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh(self):
+        source = firmware_source()
+        render_body = firmware_function_body(source, "render")
+
+        self.assertIn("if (currentPage == Page::Clock)", render_body)
+        self.assertIn("drawClockPage()", render_body)
+        self.assertIn("lv_obj_invalidate(clockScr)", source)
+        self.assertLess(
+            render_body.index("if (currentPage == Page::Clock)"),
+            render_body.index("M5.Display.fillScreen(BLACK)"),
+        )
+
     def test_stage4_firmware_does_not_fallback_to_sample_cards(self):
         source = firmware_source()
         active_body = firmware_function_body(source, "activeCardCount")
