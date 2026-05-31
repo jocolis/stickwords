@@ -439,6 +439,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_obj_center(clockDueText)", source)
         self.assertIn("lv_obj_set_size(clockDueBg, 70, 22)", source)
         self.assertIn('"DUE %u"', source)
+        self.assertNotIn("lv_obj_del(clockScr)", source)
         self.assertLess(
             render_body.index("if (currentPage == Page::Clock)"),
             render_body.index("M5.Display.fillScreen(BLACK)"),
@@ -955,7 +956,9 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("currentPage == Page::Clock", idle_timeout_body)
         self.assertIn("kClockIdlePowerOffMs", idle_timeout_body)
         self.assertIn("kIdlePowerOffMs", idle_timeout_body)
-        self.assertIn('std::strcmp(statusLine1, "No due cards") == 0', a_short_body)
+        self.assertIn("statusReturnsToClock", source)
+        self.assertIn("statusReturnsToClock", a_short_body)
+        self.assertIn("currentPage == Page::Status && statusReturnsToClock", source)
         self.assertIn("showClockPage()", a_short_body)
         self.assertLess(
             a_short_body.index("case Page::Status:"),
@@ -972,8 +975,10 @@ class FirmwareProjectTests(unittest.TestCase):
 
         self.assertIn("M5.Display.setRotation(currentRotation)", rotation_body)
         self.assertIn("currentPage == Page::Clock", rotation_body)
-        self.assertIn("createClockUI()", rotation_body)
+        self.assertIn("M5.Display.fillScreen(BLACK)", rotation_body)
+        self.assertIn("lv_obj_invalidate(clockScr)", rotation_body)
         self.assertIn("lastClockRefreshAt = 0", rotation_body)
+        self.assertNotIn("createClockUI()", rotation_body)
 
     def test_stage5d_firmware_parses_and_caches_offline_card_metadata(self):
         source = firmware_source()

@@ -189,6 +189,7 @@ bool isReRating = false;
 bool needsRender = true;
 bool setupPortalActive = false;
 bool powerOffStarted = false;
+bool statusReturnsToClock = false;
 
 static lv_disp_draw_buf_t lvDrawBuf;
 static lv_color_t lvBuf1[240 * 16];
@@ -226,8 +227,6 @@ RtcTimestamp toClockDisplayTimestamp(const RtcTimestamp& timestamp);
 String formatRtcTime(const RtcTimestamp& timestamp);
 uint32_t idleTimeoutMs();
 size_t activeCardCount();
-void createClockUI();
-
 const char* ratingName(Rating rating) {
   switch (rating) {
     case Rating::Forgot:
@@ -454,7 +453,10 @@ void updateAutoRotation(uint32_t now) {
   currentRotation = detectedRotation;
   M5.Display.setRotation(currentRotation);
   if (currentPage == Page::Clock) {
-    createClockUI();
+    M5.Display.fillScreen(BLACK);
+    if (clockScr != nullptr) {
+      lv_obj_invalidate(clockScr);
+    }
     lastClockRefreshAt = 0;
   }
   needsRender = true;
@@ -482,6 +484,7 @@ void setStatusPage(const char* line1, const char* line2 = "", const char* line3 
   copyStatusLine(statusLine1, sizeof(statusLine1), line1);
   copyStatusLine(statusLine2, sizeof(statusLine2), line2);
   copyStatusLine(statusLine3, sizeof(statusLine3), line3);
+  statusReturnsToClock = std::strcmp(line1, "No due cards") == 0;
   setPage(Page::Status);
 }
 
@@ -559,7 +562,7 @@ lv_opa_t clockColonOpacity(uint32_t now) {
 
 void createClockUI() {
   if (clockScr != nullptr) {
-    lv_obj_del(clockScr);
+    return;
   }
 
   clockScr = lv_obj_create(nullptr);
@@ -2171,7 +2174,7 @@ void handleButtonAShortPress() {
   recordInteraction(millis());
   switch (currentPage) {
     case Page::Status:
-      if (std::strcmp(statusLine1, "No due cards") == 0) {
+      if (statusReturnsToClock) {
         showClockPage();
       }
       break;
@@ -2219,6 +2222,10 @@ void handleButtonAShortPress() {
 
 void handleButtonALongPress() {
   recordInteraction(millis());
+  if (currentPage == Page::Status && statusReturnsToClock) {
+    showClockPage();
+    return;
+  }
   if (currentPage == Page::Rating) {
     submitRating();
   }
