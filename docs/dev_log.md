@@ -1030,3 +1030,15 @@ Completed:
 Notes:
 - Public docs should explain local-only configuration without conversational wording such as "for our project" or machine-specific wording such as "on this PC".
 - Development archives can contain historical context, but README should frame them clearly as archives rather than primary user instructions.
+
+## 2026-05-31 firmware polish: review complete returns to clock
+
+Completed:
+- Fixed the `Review complete` page Button A behavior so it returns to the LVGL clock page instead of resetting the review set and reopening the first card.
+- Added a firmware source regression test for the `Page::Done` Button A branch.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`

@@ -980,6 +980,14 @@ class FirmwareProjectTests(unittest.TestCase):
             b_short_body.index("const Card card = currentCard()"),
         )
 
+    def test_stage6_review_complete_button_a_returns_to_clock(self):
+        source = firmware_source()
+        a_short_body = firmware_function_body(source, "handleButtonAShortPress")
+        done_case = a_short_body[a_short_body.index("case Page::Done:") :]
+
+        self.assertIn("showClockPage()", done_case)
+        self.assertNotIn("resetReviewSet()", done_case)
+
     def test_stage6_clock_rebuilds_lvgl_after_auto_rotation(self):
         source = firmware_source()
         rotation_body = firmware_function_body(source, "updateAutoRotation")

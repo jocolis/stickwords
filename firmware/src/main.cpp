@@ -2252,7 +2252,7 @@ void handleButtonAShortPress() {
       break;
     }
     case Page::Done:
-      resetReviewSet();
+      showClockPage();
       break;
   }
 }
