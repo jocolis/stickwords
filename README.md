@@ -91,7 +91,7 @@ Before building, create the local firmware fallback config:
 Copy-Item firmware\include\secrets.example.h firmware\include\secrets.h
 ```
 
-Edit `firmware\include\secrets.h` with placeholder values or your local values. This file is required by the current firmware build, even though normal runtime configuration is done later through the M5Stick setup portal. Do not commit `secrets.h`.
+Edit `firmware\include\secrets.h` with placeholder values or your local values. This file is required by the current firmware build, even though normal runtime configuration is done later through the M5Stick setup portal.
 
 Build:
 
@@ -121,12 +121,12 @@ Hold Button B during boot, or boot without saved config, to enter setup mode.
 3. Enter your 2.4 GHz Wi-Fi SSID, password, and the StickWords server URL shown on the PC admin page.
 4. Save. The device restarts and uses the stored runtime config.
 
-`firmware/include/secrets.h` is only a local developer fallback. It must not be committed.
+`firmware/include/secrets.h` is a local-only configuration file created from the example template.
 
 ## Data And Privacy
 
-- `data/*.csv` is ignored by Git because vocabulary data may be personal.
-- `firmware/include/secrets.h` is ignored by Git because it can contain real Wi-Fi credentials and LAN URLs.
+- `data/*.csv` is excluded from the repository because vocabulary data may be personal.
+- `firmware/include/secrets.h` is excluded from the repository because it can contain Wi-Fi credentials and LAN URLs.
 - `firmware/include/secrets.example.h` is safe to publish because it contains placeholders only.
 - LAN URLs such as `http://192.168.x.x:8000` are private-network examples. They are not usually reachable from the public internet, but exact local addresses are still unnecessary in public docs.
 - Quick Add reads `DEEPSEEK_API_KEY` from your environment. Do not write real API keys into repository files.
@@ -269,7 +269,7 @@ M5Stick 配置时要填这个局域网地址，不要填 `localhost`。在 M5Sti
 Copy-Item firmware\include\secrets.example.h firmware\include\secrets.h
 ```
 
-然后编辑 `firmware\include\secrets.h`，可以填占位值，也可以填你的本地值。当前固件编译仍然要求这个文件存在，虽然日常网络配置主要通过 M5Stick setup portal 完成。不要提交 `secrets.h`。
+然后编辑 `firmware\include\secrets.h`，可以填占位值，也可以填你的本地值。当前固件编译仍然要求这个文件存在，虽然日常网络配置主要通过 M5Stick setup portal 完成。
 
 编译：
 
@@ -299,12 +299,12 @@ pio device monitor --port COM5
 3. 输入 2.4 GHz Wi-Fi 的 SSID、密码，以及 PC 网页管理页显示的 StickWords server URL。
 4. 保存后设备会重启，并使用保存的运行时配置。
 
-`firmware/include/secrets.h` 只是本地开发兜底文件，不应该提交到 Git。
+`firmware/include/secrets.h` 是从模板创建的本地配置文件。
 
 ## 数据与隐私
 
-- `data/*.csv` 已被 Git 忽略，因为生词本可能包含个人数据。
-- `firmware/include/secrets.h` 已被 Git 忽略，因为可能包含真实 Wi-Fi 密码和局域网地址。
+- `data/*.csv` 不包含在仓库中，因为生词本可能包含个人数据。
+- `firmware/include/secrets.h` 不包含在仓库中，因为可能包含 Wi-Fi 密码和局域网地址。
 - `firmware/include/secrets.example.h` 只包含占位符，可以发布。
 - `http://192.168.x.x:8000` 这类地址是局域网地址，通常公网不能访问，但真实具体地址没有必要出现在公开文档中。
 - Quick Add 从环境变量读取 `DEEPSEEK_API_KEY`，不要把真实 API key 写进仓库文件。
