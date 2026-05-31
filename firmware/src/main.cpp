@@ -68,6 +68,7 @@ constexpr size_t kMaxServerUrlLength = 96;
 constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kIdlePowerOffMs = 180000;
+constexpr uint32_t kClockIdlePowerOffMs = 300000;
 constexpr uint32_t kShakeWindowMs = 650;
 constexpr uint32_t kShakeCooldownMs = 900;
 constexpr uint8_t kClockDisplayUtcOffsetHours = 8;
@@ -173,7 +174,10 @@ uint32_t shakeWindowStartedAt = 0;
 uint32_t lastShakeAt = 0;
 uint32_t lastClockRefreshAt = 0;
 uint32_t lastInteractionAt = 0;
+RtcTimestamp clockBaseTimestamp = {};
+uint32_t clockBaseMillis = 0;
 bool shakeAboveThreshold = false;
+bool clockBaseValid = false;
 Rating selectedRating = Rating::Forgot;
 int lastSubmittedIndex = -1;
 int returnAfterReRatingIndex = -1;
@@ -213,8 +217,10 @@ void lvglFlushCb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t* pixels)
 
 RtcTimestamp readRtcTimestamp();
 bool isValidRtcTimestamp(const RtcTimestamp& timestamp);
+RtcTimestamp currentClockTimestamp();
 RtcTimestamp toClockDisplayTimestamp(const RtcTimestamp& timestamp);
 String formatRtcTime(const RtcTimestamp& timestamp);
+uint32_t idleTimeoutMs();
 size_t activeCardCount();
 
 const char* ratingName(Rating rating) {
@@ -566,7 +572,7 @@ void createClockUI() {
   lv_obj_center(clockCheckMark);
 
   clockDueBg = lv_obj_create(clockScr);
-  lv_obj_set_size(clockDueBg, 58, 22);
+  lv_obj_set_size(clockDueBg, 70, 22);
   lv_obj_align(clockDueBg, LV_ALIGN_TOP_RIGHT, -10, 6);
   lv_obj_set_style_radius(clockDueBg, 11, 0);
   lv_obj_set_style_bg_color(clockDueBg, lv_color_hex(0xEF4444), 0);
@@ -633,7 +639,7 @@ void updateClockUI() {
     createClockUI();
   }
 
-  const RtcTimestamp timestamp = readRtcTimestamp();
+  const RtcTimestamp timestamp = currentClockTimestamp();
   if (!isValidRtcTimestamp(timestamp)) {
     lv_label_set_text(clockTime, "RTC invalid");
     lv_label_set_text(clockColon, "");
@@ -1573,6 +1579,21 @@ void addMinutesToTimestamp(RtcTimestamp* timestamp, uint16_t minutes) {
   }
 }
 
+void addSecondsToTimestamp(RtcTimestamp* timestamp, uint32_t seconds) {
+  if (timestamp == nullptr) {
+    return;
+  }
+
+  const uint32_t totalSeconds = static_cast<uint32_t>(timestamp->second) + seconds;
+  timestamp->second = static_cast<uint8_t>(totalSeconds % 60);
+  uint32_t minutes = totalSeconds / 60;
+  while (minutes > 0) {
+    const uint16_t chunk = minutes > 1440 ? 1440 : static_cast<uint16_t>(minutes);
+    addMinutesToTimestamp(timestamp, chunk);
+    minutes -= chunk;
+  }
+}
+
 void addDaysToTimestamp(RtcTimestamp* timestamp, uint16_t days) {
   for (uint16_t i = 0; i < days; ++i) {
     addMinutesToTimestamp(timestamp, 24 * 60);
@@ -1671,6 +1692,29 @@ RtcTimestamp readRtcTimestamp() {
   };
 }
 
+void syncClockBase(const RtcTimestamp& timestamp) {
+  if (!isValidRtcTimestamp(timestamp)) {
+    clockBaseValid = false;
+    return;
+  }
+
+  clockBaseTimestamp = timestamp;
+  clockBaseMillis = millis();
+  clockBaseValid = true;
+}
+
+RtcTimestamp currentClockTimestamp() {
+  if (!clockBaseValid) {
+    const RtcTimestamp timestamp = readRtcTimestamp();
+    syncClockBase(timestamp);
+    return timestamp;
+  }
+
+  RtcTimestamp timestamp = clockBaseTimestamp;
+  addSecondsToTimestamp(&timestamp, (millis() - clockBaseMillis) / 1000);
+  return timestamp;
+}
+
 void logRtcNow() {
   const RtcTimestamp timestamp = readRtcTimestamp();
   if (!isValidRtcTimestamp(timestamp)) {
@@ -1685,7 +1729,7 @@ void recordInteraction(uint32_t now) {
 }
 
 void handleIdlePowerOff(uint32_t now) {
-  if (powerOffStarted || now < lastInteractionAt || now - lastInteractionAt < kIdlePowerOffMs) {
+  if (powerOffStarted || now < lastInteractionAt || now - lastInteractionAt < idleTimeoutMs()) {
     return;
   }
 
@@ -1697,6 +1741,10 @@ void handleIdlePowerOff(uint32_t now) {
   drawStatusMessage("Power off");
   delay(100);
   M5.Power.powerOff();
+}
+
+uint32_t idleTimeoutMs() {
+  return currentPage == Page::Clock ? kClockIdlePowerOffMs : kIdlePowerOffMs;
 }
 
 void showClockPage() {
@@ -1735,6 +1783,7 @@ void setRtcFromGeneratedAt(const char* generatedAt) {
   };
   M5.Rtc.setDate(&date);
   M5.Rtc.setTime(&time);
+  syncClockBase(timestamp);
   Serial.println("RTC set=" + formatRtcTimestamp(timestamp));
   logRtcNow();
 }
@@ -2110,6 +2159,9 @@ void handleButtonAShortPress() {
   const Card card = currentCard();
   switch (currentPage) {
     case Page::Status:
+      if (std::strcmp(statusLine1, "No due cards") == 0) {
+        showClockPage();
+      }
       break;
     case Page::Clock:
       setPage(clockExitPage);

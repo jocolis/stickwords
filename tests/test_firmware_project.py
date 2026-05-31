@@ -414,6 +414,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("updateClockUI()", clock_body)
         self.assertIn("constexpr uint32_t kIdlePowerOffMs = 180000", source)
+        self.assertIn("constexpr uint32_t kClockIdlePowerOffMs = 300000", source)
         self.assertNotIn("kIdleClockReturnMs", source)
 
     def test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh(self):
@@ -429,6 +430,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_obj_set_style_text_opa(clockColon", source)
         self.assertIn("lv_obj_align_to(clockBatLabel, clockBatArc, LV_ALIGN_CENTER, 0, 0)", source)
         self.assertIn("lv_obj_center(clockDueText)", source)
+        self.assertIn("lv_obj_set_size(clockDueBg, 70, 22)", source)
         self.assertLess(
             render_body.index("if (currentPage == Page::Clock)"),
             render_body.index("M5.Display.fillScreen(BLACK)"),
@@ -872,7 +874,10 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("updateClockUI()", draw_clock_body)
         self.assertIn("RTC invalid", clock_ui_body)
         self.assertIn("Sync needed", clock_ui_body)
+        self.assertIn("currentClockTimestamp()", clock_ui_body)
         self.assertIn("toClockDisplayTimestamp(timestamp)", clock_ui_body)
+        self.assertIn("syncClockBase(", source)
+        self.assertIn("addSecondsToTimestamp", source)
         self.assertIn("kClockDisplayUtcOffsetHours", local_body)
         self.assertIn("while (display.hour >= 24)", local_body)
         self.assertIn("daysInMonth(display.year, display.month)", local_body)
@@ -917,12 +922,13 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("bool powerOffStarted", source)
         self.assertIn("void recordInteraction(uint32_t now)", source)
         self.assertIn("void handleIdlePowerOff(uint32_t now)", source)
+        self.assertIn("uint32_t idleTimeoutMs()", source)
         self.assertIn("M5.Power.powerOff()", idle_body)
         self.assertIn("savePendingReviews()", idle_body)
         self.assertIn("pendingReviewCount > 0", idle_body)
         self.assertIn("powerOffStarted", idle_body)
         self.assertIn("now < lastInteractionAt", idle_body)
-        self.assertIn("now - lastInteractionAt < kIdlePowerOffMs", idle_body)
+        self.assertIn("now - lastInteractionAt < idleTimeoutMs()", idle_body)
         self.assertIn("handleIdlePowerOff(millis())", loop_body)
         self.assertLess(loop_body.index("setupPortalActive"), loop_body.index("handleIdlePowerOff(millis())"))
         self.assertIn("lastInteractionAt = millis()", setup_body)
@@ -931,6 +937,17 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("recordInteraction(millis())", a_long_body)
         self.assertIn("recordInteraction(millis())", b_short_body)
         self.assertIn("recordInteraction(now)", shake_body)
+
+    def test_stage6_clock_idle_and_no_due_status_return(self):
+        source = firmware_source()
+        idle_timeout_body = firmware_function_body(source, "idleTimeoutMs")
+        a_short_body = firmware_function_body(source, "handleButtonAShortPress")
+
+        self.assertIn("currentPage == Page::Clock", idle_timeout_body)
+        self.assertIn("kClockIdlePowerOffMs", idle_timeout_body)
+        self.assertIn("kIdlePowerOffMs", idle_timeout_body)
+        self.assertIn('std::strcmp(statusLine1, "No due cards") == 0', a_short_body)
+        self.assertIn("showClockPage()", a_short_body)
 
     def test_stage5d_firmware_parses_and_caches_offline_card_metadata(self):
         source = firmware_source()
