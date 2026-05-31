@@ -154,6 +154,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - sets the BM8563 RTC from the backend `generated_at` timestamp after successful sync
   - logs RTC status at boot and after calibration with `RTC now=... valid=1` or `RTC now=invalid valid=0`
   - shows a UTC+8 clock page after normal boot while keeping RTC/sync timestamps internally in UTC
+  - renders the clock page with LVGL, following the Figma Make layout reference with large time, date, due count, check mark, and battery arc
   - short-press Button A on the clock page to enter the review/status flow
   - powers off after 3 minutes without Button A, Button B, or double-shake interaction outside setup mode
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
@@ -174,6 +175,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware offline fallback can select due cards from the most recently synced 7-day offline package using BM8563 RTC time.
 - Firmware offline scheduling is still limited to the cached package; it does not cache the full PC vocabulary.
 - Device-side scheduling is intentionally a small SM-2 approximation; the PC backend remains the source of truth after pending events upload.
+- Firmware flash usage is tight after the Stage 6 M5Unified/LVGL migration: latest build used 94.8% of the configured firmware partition.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
@@ -186,7 +188,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 ## Future Improvements
 
 - Automatic PC/backend discovery, for example via mDNS, UDP broadcast, or a setup-page helper that can provide the current LAN server URL without manual copying.
-- Update cached scheduling metadata after an offline rating, so the same word can become due again during one offline period.
+- Reduce firmware size or adjust the partition strategy if future LVGL screens/assets push flash usage past the current partition limit.
 
 ## Real-Device Validation Notes
 
@@ -231,11 +233,21 @@ Stage 5D offline due scheduling validation procedure:
 8. Restore Wi-Fi/backend and confirm pending review events upload successfully.
 9. Confirm the PC backend updates `vocab.csv` after replaying the uploaded events.
 
+Stage 6 LVGL clock validation procedure:
+
+1. Build and upload the firmware from `C:\Users\ASUS\Documents\M5Stick\firmware`.
+2. Boot normally with a valid runtime Wi-Fi/server config.
+3. Confirm the first screen is the LVGL clock page, with large time, date, due count, check mark, and battery arc.
+4. Confirm Button A short press enters the existing review/status flow.
+5. Confirm left/right landscape auto-rotation still works on the clock page and review pages.
+6. Confirm 3-minute idle power-off still occurs outside setup mode.
+7. Confirm setup mode still starts when Button B is held at boot.
+
 ## Next Stage
 
 Choose the next product milestone:
 
-1. Improve M5Stick Chinese rendering.
-2. Add easier Wi-Fi/server configuration instead of editing `secrets.h`.
+1. Real-device validation for Stage 6 LVGL clock page.
+2. Improve M5Stick Chinese rendering.
 3. Improve offline-review semantics beyond the last cached due-card batch.
 4. Prepare the GitHub publication path: README, screenshots, license, and repository hygiene.

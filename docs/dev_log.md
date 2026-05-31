@@ -851,3 +851,23 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-05-31 Stage 6 implementation: LVGL clock page
+
+Completed:
+- Kept `C:\Users\ASUS\Documents\M5Stick` as the baseline project. `M5Stick-v2` remains exploratory reference only.
+- Used the local Figma Make export at `C:\Users\ASUS\Downloads\M5stick界面设计\src\app\App.tsx` as the UI source because the Figma plugin could not screenshot the Make file directly.
+- Migrated firmware from `M5StickCPlus` to `M5Unified` so the clock page can use LVGL while the existing review/status/setup pages continue using M5GFX immediate drawing.
+- Added LVGL display buffering, RGB565 flush with `M5.Display.setSwapBytes(true)`, and an LVGL clock screen with time, date, due count, check mark, and battery arc.
+- Updated RTC, IMU, power-off, and Button A long-press calls to M5Unified APIs.
+- Kept the existing 3-minute idle power-off behavior and did not adopt the Stage 5E two-stage idle design.
+
+Verification:
+- Full firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result: RAM 36.4%, Flash 94.8% of the configured firmware partition.
+
+Notes:
+- Flash usage is now tight because LVGL and M5Unified pull in larger libraries. Future UI work should watch firmware size before adding more LVGL widgets/assets.

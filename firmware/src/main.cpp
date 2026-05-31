@@ -1,10 +1,12 @@
 #include <HTTPClient.h>
 #include <DNSServer.h>
-#include <M5StickCPlus.h>
+#include <M5Unified.h>
 #include <Preferences.h>
 #include <WebServer.h>
+#include <lvgl.h>
 #include <WiFi.h>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -174,6 +176,39 @@ bool needsRender = true;
 bool setupPortalActive = false;
 bool powerOffStarted = false;
 
+static lv_disp_draw_buf_t lvDrawBuf;
+static lv_color_t lvBuf1[240 * 16];
+static lv_color_t lvBuf2[240 * 16];
+static lv_disp_drv_t lvDispDrv;
+
+lv_obj_t* clockScr = nullptr;
+lv_obj_t* clockTime = nullptr;
+lv_obj_t* clockDayLabel = nullptr;
+lv_obj_t* clockDateLabel = nullptr;
+lv_obj_t* clockDueBg = nullptr;
+lv_obj_t* clockDueText = nullptr;
+lv_obj_t* clockBatArc = nullptr;
+lv_obj_t* clockBatLabel = nullptr;
+lv_obj_t* clockCheckMark = nullptr;
+lv_obj_t* clockCheckCircle = nullptr;
+
+void lvglFlushCb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t* pixels) {
+  const uint32_t w = area->x2 - area->x1 + 1;
+  const uint32_t h = area->y2 - area->y1 + 1;
+  M5.Display.startWrite();
+  M5.Display.setSwapBytes(true);
+  M5.Display.setAddrWindow(area->x1, area->y1, w, h);
+  M5.Display.pushPixels(reinterpret_cast<uint16_t*>(pixels), w * h);
+  M5.Display.endWrite();
+  lv_disp_flush_ready(disp);
+}
+
+RtcTimestamp readRtcTimestamp();
+bool isValidRtcTimestamp(const RtcTimestamp& timestamp);
+RtcTimestamp toClockDisplayTimestamp(const RtcTimestamp& timestamp);
+String formatRtcTime(const RtcTimestamp& timestamp);
+size_t activeCardCount();
+
 const char* ratingName(Rating rating) {
   switch (rating) {
     case Rating::Forgot:
@@ -257,7 +292,7 @@ int16_t textWidthSlice(const char* text, size_t start, size_t end) {
   for (size_t i = start; i < end; ++i) {
     token += text[i];
   }
-  return M5.Lcd.textWidth(token);
+  return M5.Display.textWidth(token);
 }
 
 size_t fitLongTokenEnd(const char* text, size_t start, size_t end) {
@@ -268,7 +303,7 @@ size_t fitLongTokenEnd(const char* text, size_t start, size_t end) {
   while (cursor < end) {
     String character = "";
     character += text[cursor];
-    const int16_t charWidth = M5.Lcd.textWidth(character);
+    const int16_t charWidth = M5.Display.textWidth(character);
     if (cursorX + charWidth > kContentMaxX) {
       cursorX = kContentX;
       cursorY += kContentLineHeight;
@@ -283,7 +318,7 @@ size_t fitLongTokenEnd(const char* text, size_t start, size_t end) {
 }
 
 size_t findNextContentPageStart(const char* text, size_t start) {
-  M5.Lcd.setTextSize(kContentTextSize);
+  M5.Display.setTextSize(kContentTextSize);
   const size_t length = std::strlen(text);
   size_t index = skipBreakChars(text, start);
   size_t lastFitEnd = index;
@@ -294,7 +329,7 @@ size_t findNextContentPageStart(const char* text, size_t start) {
     const size_t tokenStart = index;
     const size_t tokenEnd = nextTokenEnd(text, index);
     const int16_t tokenWidth = textWidthSlice(text, tokenStart, tokenEnd);
-    const int16_t spaceWidth = cursorX == kContentX ? 0 : M5.Lcd.textWidth(" ");
+    const int16_t spaceWidth = cursorX == kContentX ? 0 : M5.Display.textWidth(" ");
 
     if (cursorX != kContentX && cursorX + spaceWidth + tokenWidth > kContentMaxX) {
       cursorX = kContentX;
@@ -361,7 +396,7 @@ Card currentCard() {
 }
 
 void readImu() {
-  M5.IMU.getAccelData(&accelX, &accelY, &accelZ);
+  M5.Imu.getAccel(&accelX, &accelY, &accelZ);
 }
 
 float accelMagnitude() {
@@ -398,18 +433,18 @@ void updateAutoRotation(uint32_t now) {
   }
 
   currentRotation = detectedRotation;
-  M5.Lcd.setRotation(currentRotation);
+  M5.Display.setRotation(currentRotation);
   needsRender = true;
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
 }
 
 void drawCenteredText(const char* text, int16_t y, uint8_t textSize) {
-  M5.Lcd.setTextSize(textSize);
-  const int16_t textWidth = M5.Lcd.textWidth(text);
+  M5.Display.setTextSize(textSize);
+  const int16_t textWidth = M5.Display.textWidth(text);
   const int16_t x = (240 - textWidth) / 2;
-  M5.Lcd.setCursor(x < 0 ? 0 : x, y);
-  M5.Lcd.println(text);
+  M5.Display.setCursor(x < 0 ? 0 : x, y);
+  M5.Display.println(text);
 }
 
 void copyStatusLine(char* dest, size_t destSize, const char* source) {
@@ -479,31 +514,160 @@ String runtimeServerUrl() {
   return normalizeServerUrl(String(STICKWORDS_SERVER_URL));
 }
 
+int weekdayIndex(uint16_t year, uint8_t month, uint8_t date) {
+  static int offsets[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+  int adjustedYear = year;
+  if (month < 3) {
+    adjustedYear -= 1;
+  }
+  return (adjustedYear + adjustedYear / 4 - adjustedYear / 100 +
+          adjustedYear / 400 + offsets[month - 1] + date) %
+         7;
+}
+
+void createClockUI() {
+  if (clockScr != nullptr) {
+    lv_obj_del(clockScr);
+  }
+
+  clockScr = lv_obj_create(nullptr);
+  lv_obj_clear_flag(clockScr, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_style_bg_color(clockScr, lv_color_black(), 0);
+  lv_obj_set_style_pad_all(clockScr, 0, 0);
+
+  clockCheckCircle = lv_obj_create(clockScr);
+  lv_obj_set_size(clockCheckCircle, 14, 14);
+  lv_obj_set_pos(clockCheckCircle, 10, 6);
+  lv_obj_set_style_radius(clockCheckCircle, LV_RADIUS_CIRCLE, 0);
+  lv_obj_set_style_bg_color(clockCheckCircle, lv_color_hex(0x22C55E), 0);
+  lv_obj_set_style_border_width(clockCheckCircle, 0, 0);
+  lv_obj_clear_flag(clockCheckCircle, LV_OBJ_FLAG_SCROLLABLE);
+
+  clockCheckMark = lv_label_create(clockCheckCircle);
+  lv_label_set_text(clockCheckMark, LV_SYMBOL_OK);
+  lv_obj_set_style_text_color(clockCheckMark, lv_color_white(), 0);
+  lv_obj_set_style_text_font(clockCheckMark, &lv_font_montserrat_12, 0);
+  lv_obj_center(clockCheckMark);
+
+  clockDueBg = lv_obj_create(clockScr);
+  lv_obj_set_size(clockDueBg, 58, 22);
+  lv_obj_align(clockDueBg, LV_ALIGN_TOP_RIGHT, -10, 6);
+  lv_obj_set_style_radius(clockDueBg, 11, 0);
+  lv_obj_set_style_bg_color(clockDueBg, lv_color_hex(0xEF4444), 0);
+  lv_obj_set_style_border_width(clockDueBg, 0, 0);
+  lv_obj_set_style_pad_all(clockDueBg, 0, 0);
+  lv_obj_clear_flag(clockDueBg, LV_OBJ_FLAG_SCROLLABLE);
+
+  clockDueText = lv_label_create(clockDueBg);
+  lv_obj_set_style_text_color(clockDueText, lv_color_white(), 0);
+  lv_obj_set_style_text_font(clockDueText, &lv_font_montserrat_14, 0);
+  lv_obj_center(clockDueText);
+
+  clockTime = lv_label_create(clockScr);
+  lv_obj_set_pos(clockTime, 10, 34);
+  lv_obj_set_style_text_font(clockTime, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clockTime, lv_color_white(), 0);
+
+  clockDayLabel = lv_label_create(clockScr);
+  lv_obj_set_pos(clockDayLabel, 10, 90);
+  lv_obj_set_style_text_font(clockDayLabel, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_color(clockDayLabel, lv_color_hex(0xEF4444), 0);
+
+  clockDateLabel = lv_label_create(clockScr);
+  lv_obj_set_pos(clockDateLabel, 70, 90);
+  lv_obj_set_style_text_font(clockDateLabel, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_color(clockDateLabel, lv_color_white(), 0);
+
+  clockBatArc = lv_arc_create(clockScr);
+  lv_obj_set_size(clockBatArc, 56, 56);
+  lv_obj_align(clockBatArc, LV_ALIGN_RIGHT_MID, -12, 0);
+  lv_arc_set_rotation(clockBatArc, 270);
+  lv_arc_set_bg_angles(clockBatArc, 0, 360);
+  lv_arc_set_range(clockBatArc, 0, 100);
+  lv_obj_set_style_arc_color(clockBatArc, lv_color_hex(0x333333), LV_PART_MAIN);
+  lv_obj_set_style_arc_width(clockBatArc, 4, LV_PART_MAIN);
+  lv_obj_set_style_arc_color(clockBatArc, lv_color_hex(0x22C55E), LV_PART_INDICATOR);
+  lv_obj_set_style_arc_width(clockBatArc, 4, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_rounded(clockBatArc, true, 0);
+  lv_obj_remove_style(clockBatArc, nullptr, LV_PART_KNOB);
+  lv_obj_clear_flag(clockBatArc, LV_OBJ_FLAG_CLICKABLE);
+
+  clockBatLabel = lv_label_create(clockScr);
+  lv_obj_set_style_text_font(clockBatLabel, &lv_font_montserrat_18, 0);
+  lv_obj_set_style_text_color(clockBatLabel, lv_color_white(), 0);
+  lv_obj_align_to(clockBatLabel, clockBatArc, LV_ALIGN_CENTER, 0, 0);
+
+  lv_scr_load(clockScr);
+}
+
+void updateClockUI() {
+  if (clockScr == nullptr) {
+    createClockUI();
+  }
+
+  const RtcTimestamp timestamp = readRtcTimestamp();
+  if (!isValidRtcTimestamp(timestamp)) {
+    lv_label_set_text(clockTime, "RTC invalid");
+    lv_label_set_text(clockDayLabel, "Sync needed");
+    lv_label_set_text(clockDateLabel, "");
+    lv_label_set_text(clockDueText, "DUE0");
+    lv_arc_set_value(clockBatArc, 0);
+    lv_label_set_text(clockBatLabel, "0");
+    return;
+  }
+
+  const RtcTimestamp display = toClockDisplayTimestamp(timestamp);
+  const String time = formatRtcTime(display);
+  lv_label_set_text(clockTime, time.substring(0, 5).c_str());
+
+  static const char* weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+  lv_label_set_text(clockDayLabel, weekdays[weekdayIndex(display.year, display.month, display.date)]);
+
+  char dateBuffer[4];
+  std::snprintf(dateBuffer, sizeof(dateBuffer), "%u", static_cast<unsigned>(display.date));
+  lv_label_set_text(clockDateLabel, dateBuffer);
+
+  char dueBuffer[8];
+  std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE%u", static_cast<unsigned>(activeCardCount()));
+  lv_label_set_text(clockDueText, dueBuffer);
+
+  std::int32_t batteryLevel = M5.Power.getBatteryLevel();
+  if (batteryLevel < 0) {
+    batteryLevel = 0;
+  }
+  if (batteryLevel > 100) {
+    batteryLevel = 100;
+  }
+  lv_arc_set_value(clockBatArc, static_cast<int16_t>(batteryLevel));
+
+  lv_color_t batteryColor = lv_color_hex(0xEF4444);
+  if (batteryLevel > 50) {
+    batteryColor = lv_color_hex(0x22C55E);
+  } else if (batteryLevel > 20) {
+    batteryColor = lv_color_hex(0xEAB308);
+  }
+  lv_obj_set_style_arc_color(clockBatArc, batteryColor, LV_PART_INDICATOR);
+
+  char batteryBuffer[8];
+  std::snprintf(batteryBuffer, sizeof(batteryBuffer), "%d", static_cast<int>(batteryLevel));
+  lv_label_set_text(clockBatLabel, batteryBuffer);
+}
+
 void drawStatusPage() {
-  M5.Lcd.setCursor(8, 36);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.println(statusLine1);
+  M5.Display.setCursor(8, 36);
+  M5.Display.setTextSize(2);
+  M5.Display.println(statusLine1);
   if (statusLine2[0] != '\0') {
-    M5.Lcd.println(statusLine2);
+    M5.Display.println(statusLine2);
   }
   if (statusLine3[0] != '\0') {
-    M5.Lcd.println(statusLine3);
+    M5.Display.println(statusLine3);
   }
 }
 
 void drawClockPage() {
-  const RtcTimestamp timestamp = readRtcTimestamp();
-  if (!isValidRtcTimestamp(timestamp)) {
-    drawCenteredText("RTC invalid", 38, 2);
-    drawCenteredText("Sync needed", 74, 2);
-    return;
-  }
-
-  const RtcTimestamp displayTimestamp = toClockDisplayTimestamp(timestamp);
-  const String date = formatRtcDate(displayTimestamp);
-  const String time = formatRtcTime(displayTimestamp);
-  drawCenteredText(date.c_str(), 30, 2);
-  drawCenteredText(time.c_str(), 66, 3);
+  updateClockUI();
+  lv_timer_handler();
 }
 
 void drawWordPage() {
@@ -512,7 +676,7 @@ void drawWordPage() {
 }
 
 void drawWrappedContentPage(const char* text) {
-  M5.Lcd.setTextSize(kContentTextSize);
+  M5.Display.setTextSize(kContentTextSize);
   size_t index = skipBreakChars(text, contentPageStart);
   size_t lastDrawnEnd = index;
   int16_t cursorX = kContentX;
@@ -522,7 +686,7 @@ void drawWrappedContentPage(const char* text) {
     const size_t tokenStart = index;
     const size_t tokenEnd = nextTokenEnd(text, index);
     const int16_t tokenWidth = textWidthSlice(text, tokenStart, tokenEnd);
-    const int16_t spaceWidth = cursorX == kContentX ? 0 : M5.Lcd.textWidth(" ");
+    const int16_t spaceWidth = cursorX == kContentX ? 0 : M5.Display.textWidth(" ");
 
     if (cursorX != kContentX && cursorX + spaceWidth + tokenWidth > kContentMaxX) {
       cursorX = kContentX;
@@ -532,9 +696,9 @@ void drawWrappedContentPage(const char* text) {
       break;
     }
 
-    M5.Lcd.setCursor(cursorX, cursorY);
+    M5.Display.setCursor(cursorX, cursorY);
     if (cursorX != kContentX) {
-      M5.Lcd.print(" ");
+      M5.Display.print(" ");
       cursorX += spaceWidth;
     }
 
@@ -543,7 +707,7 @@ void drawWrappedContentPage(const char* text) {
       while (charIndex < tokenEnd) {
         String character = "";
         character += text[charIndex];
-        const int16_t charWidth = M5.Lcd.textWidth(character);
+        const int16_t charWidth = M5.Display.textWidth(character);
         if (cursorX + charWidth > kContentMaxX) {
           cursorX = kContentX;
           cursorY += kContentLineHeight;
@@ -551,9 +715,9 @@ void drawWrappedContentPage(const char* text) {
             index = charIndex;
             break;
           }
-          M5.Lcd.setCursor(cursorX, cursorY);
+          M5.Display.setCursor(cursorX, cursorY);
         }
-        M5.Lcd.print(character);
+        M5.Display.print(character);
         cursorX += charWidth;
         charIndex += 1;
         lastDrawnEnd = charIndex;
@@ -563,7 +727,7 @@ void drawWrappedContentPage(const char* text) {
       }
     } else {
       for (size_t i = tokenStart; i < tokenEnd; ++i) {
-        M5.Lcd.print(text[i]);
+        M5.Display.print(text[i]);
       }
       cursorX += tokenWidth;
       lastDrawnEnd = tokenEnd;
@@ -573,8 +737,8 @@ void drawWrappedContentPage(const char* text) {
   }
 
   if (findNextContentPageStart(text, contentPageStart) < std::strlen(text)) {
-    M5.Lcd.setCursor(kContentMaxX - M5.Lcd.textWidth("..."), kContentMaxY - kContentLineHeight);
-    M5.Lcd.print("...");
+    M5.Display.setCursor(kContentMaxX - M5.Display.textWidth("..."), kContentMaxY - kContentLineHeight);
+    M5.Display.print("...");
   }
 }
 
@@ -589,15 +753,15 @@ void drawExamplePage() {
 }
 
 void drawRatingOption(Rating rating) {
-  M5.Lcd.printf("%c %s\n", rating == selectedRating ? '>' : ' ', ratingName(rating));
+  M5.Display.printf("%c %s\n", rating == selectedRating ? '>' : ' ', ratingName(rating));
 }
 
 void drawRatingPage() {
   const Card card = currentCard();
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.print(card.word);
-  M5.Lcd.println();
-  M5.Lcd.println();
+  M5.Display.setTextSize(2);
+  M5.Display.print(card.word);
+  M5.Display.println();
+  M5.Display.println();
   drawRatingOption(Rating::Forgot);
   drawRatingOption(Rating::Hard);
   drawRatingOption(Rating::Good);
@@ -605,9 +769,9 @@ void drawRatingPage() {
 
 void drawDonePage() {
   drawCenteredText("Review complete", 38, 2);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(74, 76);
-  M5.Lcd.printf("%u/%u rated", static_cast<unsigned>(activeCardCount()),
+  M5.Display.setTextSize(2);
+  M5.Display.setCursor(74, 76);
+  M5.Display.printf("%u/%u rated", static_cast<unsigned>(activeCardCount()),
                 static_cast<unsigned>(activeCardCount()));
 }
 
@@ -617,10 +781,10 @@ void render() {
   }
 
   needsRender = false;
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(8, 8);
-  M5.Lcd.setTextColor(WHITE, BLACK);
-  M5.Lcd.setTextSize(1);
+  M5.Display.fillScreen(BLACK);
+  M5.Display.setCursor(8, 8);
+  M5.Display.setTextColor(WHITE, BLACK);
+  M5.Display.setTextSize(1);
 
   switch (currentPage) {
     case Page::Status:
@@ -853,16 +1017,16 @@ void clearPendingReviews() {
 }
 
 void drawStatusMessage(const char* line1, const char* line2 = "", const char* line3 = "") {
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(8, 36);
-  M5.Lcd.setTextColor(WHITE, BLACK);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.println(line1);
+  M5.Display.fillScreen(BLACK);
+  M5.Display.setCursor(8, 36);
+  M5.Display.setTextColor(WHITE, BLACK);
+  M5.Display.setTextSize(2);
+  M5.Display.println(line1);
   if (line2[0] != '\0') {
-    M5.Lcd.println(line2);
+    M5.Display.println(line2);
   }
   if (line3[0] != '\0') {
-    M5.Lcd.println(line3);
+    M5.Display.println(line3);
   }
 }
 
@@ -1444,18 +1608,18 @@ String formatRtcTime(const RtcTimestamp& timestamp) {
 }
 
 RtcTimestamp readRtcTimestamp() {
-  RTC_TimeTypeDef time = {};
-  RTC_DateTypeDef date = {};
-  M5.Rtc.GetTime(&time);
-  M5.Rtc.GetDate(&date);
+  m5::rtc_time_t time = {};
+  m5::rtc_date_t date = {};
+  M5.Rtc.getTime(&time);
+  M5.Rtc.getDate(&date);
   return {
-      date.Year,
-      date.Month,
-      date.Date,
-      time.Hours,
-      time.Minutes,
-      time.Seconds,
-      date.WeekDay,
+      static_cast<uint16_t>(date.year),
+      static_cast<uint8_t>(date.month),
+      static_cast<uint8_t>(date.date),
+      static_cast<uint8_t>(time.hours),
+      static_cast<uint8_t>(time.minutes),
+      static_cast<uint8_t>(time.seconds),
+      static_cast<uint8_t>(date.weekDay),
   };
 }
 
@@ -1484,7 +1648,7 @@ void handleIdlePowerOff(uint32_t now) {
   }
   drawStatusMessage("Power off");
   delay(100);
-  M5.Axp.PowerOff();
+  M5.Power.powerOff();
 }
 
 void showClockPage() {
@@ -1510,19 +1674,19 @@ void setRtcFromGeneratedAt(const char* generatedAt) {
     return;
   }
 
-  RTC_TimeTypeDef time = {
-      timestamp.hour,
-      timestamp.minute,
-      timestamp.second,
+  m5::rtc_time_t time = {
+      static_cast<int8_t>(timestamp.hour),
+      static_cast<int8_t>(timestamp.minute),
+      static_cast<int8_t>(timestamp.second),
   };
-  RTC_DateTypeDef date = {
-      timestamp.weekDay,
-      timestamp.month,
-      timestamp.date,
-      timestamp.year,
+  m5::rtc_date_t date = {
+      static_cast<int16_t>(timestamp.year),
+      static_cast<int8_t>(timestamp.month),
+      static_cast<int8_t>(timestamp.date),
+      static_cast<int8_t>(timestamp.weekDay),
   };
-  M5.Rtc.SetDate(&date);
-  M5.Rtc.SetTime(&time);
+  M5.Rtc.setDate(&date);
+  M5.Rtc.setTime(&time);
   Serial.println("RTC set=" + formatRtcTimestamp(timestamp));
   logRtcNow();
 }
@@ -1979,18 +2143,30 @@ void handleButtonBShortPress() {
 }  // namespace
 
 void setup() {
-  M5.begin();
-  M5.Imu.Init();
-  Serial.begin(115200);
+  auto cfg = M5.config();
+  cfg.serial_baudrate = 115200;
+  cfg.internal_imu = true;
+  cfg.clear_display = true;
+  M5.begin(cfg);
   delay(200);
+
+  lv_init();
+  lv_disp_draw_buf_init(&lvDrawBuf, lvBuf1, lvBuf2, 240 * 16);
+  lv_disp_drv_init(&lvDispDrv);
+  lvDispDrv.hor_res = 240;
+  lvDispDrv.ver_res = 135;
+  lvDispDrv.flush_cb = lvglFlushCb;
+  lvDispDrv.draw_buf = &lvDrawBuf;
+  lv_disp_drv_register(&lvDispDrv);
+  createClockUI();
 
   readImu();
   currentRotation = detectLandscapeRotation();
   pendingRotation = currentRotation;
   pendingRotationSince = millis();
-  M5.Lcd.setRotation(currentRotation);
-  M5.Lcd.setTextFont(1);
-  M5.Lcd.setTextDatum(TL_DATUM);
+  M5.Display.setRotation(currentRotation);
+  M5.Display.setTextFont(1);
+  M5.Display.setTextDatum(TL_DATUM);
   reviewBootNonce = esp_random();
   lastInteractionAt = millis();
 
@@ -2036,7 +2212,7 @@ void loop() {
   updateClockPage(now);
   updateShakeGood(now);
 
-  if (M5.BtnA.wasReleasefor(kButtonLongPressMs)) {
+  if (M5.BtnA.wasReleaseFor(kButtonLongPressMs)) {
     handleButtonALongPress();
   } else if (M5.BtnA.wasReleased()) {
     handleButtonAShortPress();
@@ -2047,6 +2223,9 @@ void loop() {
   }
 
   handleIdlePowerOff(now);
+  if (currentPage == Page::Clock) {
+    lv_timer_handler();
+  }
   render();
   delay(20);
 }
