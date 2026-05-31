@@ -189,6 +189,8 @@ static lv_disp_drv_t lvDispDrv;
 
 lv_obj_t* clockScr = nullptr;
 lv_obj_t* clockTime = nullptr;
+lv_obj_t* clockColon = nullptr;
+lv_obj_t* clockMinute = nullptr;
 lv_obj_t* clockDayLabel = nullptr;
 lv_obj_t* clockDateLabel = nullptr;
 lv_obj_t* clockDueBg = nullptr;
@@ -531,6 +533,12 @@ int weekdayIndex(uint16_t year, uint8_t month, uint8_t date) {
          7;
 }
 
+lv_opa_t clockColonOpacity(uint32_t now) {
+  const uint16_t phase = now % 1000;
+  const uint16_t rising = phase <= 500 ? phase : 1000 - phase;
+  return static_cast<lv_opa_t>(70 + (rising * 185U) / 500U);
+}
+
 void createClockUI() {
   if (clockScr != nullptr) {
     lv_obj_del(clockScr);
@@ -547,6 +555,7 @@ void createClockUI() {
   lv_obj_set_pos(clockCheckCircle, 10, 6);
   lv_obj_set_style_radius(clockCheckCircle, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_bg_color(clockCheckCircle, lv_color_hex(0x22C55E), 0);
+  lv_obj_set_style_bg_opa(clockCheckCircle, LV_OPA_COVER, 0);
   lv_obj_set_style_border_width(clockCheckCircle, 0, 0);
   lv_obj_clear_flag(clockCheckCircle, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -561,6 +570,7 @@ void createClockUI() {
   lv_obj_align(clockDueBg, LV_ALIGN_TOP_RIGHT, -10, 6);
   lv_obj_set_style_radius(clockDueBg, 11, 0);
   lv_obj_set_style_bg_color(clockDueBg, lv_color_hex(0xEF4444), 0);
+  lv_obj_set_style_bg_opa(clockDueBg, LV_OPA_COVER, 0);
   lv_obj_set_style_border_width(clockDueBg, 0, 0);
   lv_obj_set_style_pad_all(clockDueBg, 0, 0);
   lv_obj_clear_flag(clockDueBg, LV_OBJ_FLAG_SCROLLABLE);
@@ -574,6 +584,17 @@ void createClockUI() {
   lv_obj_set_pos(clockTime, 10, 34);
   lv_obj_set_style_text_font(clockTime, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockTime, lv_color_white(), 0);
+
+  clockColon = lv_label_create(clockScr);
+  lv_label_set_text(clockColon, ":");
+  lv_obj_set_pos(clockColon, 82, 34);
+  lv_obj_set_style_text_font(clockColon, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clockColon, lv_color_hex(0x8F839D), 0);
+
+  clockMinute = lv_label_create(clockScr);
+  lv_obj_set_pos(clockMinute, 106, 34);
+  lv_obj_set_style_text_font(clockMinute, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clockMinute, lv_color_white(), 0);
 
   clockDayLabel = lv_label_create(clockScr);
   lv_obj_set_pos(clockDayLabel, 10, 90);
@@ -615,17 +636,27 @@ void updateClockUI() {
   const RtcTimestamp timestamp = readRtcTimestamp();
   if (!isValidRtcTimestamp(timestamp)) {
     lv_label_set_text(clockTime, "RTC invalid");
+    lv_label_set_text(clockColon, "");
+    lv_label_set_text(clockMinute, "");
     lv_label_set_text(clockDayLabel, "Sync needed");
     lv_label_set_text(clockDateLabel, "");
     lv_label_set_text(clockDueText, "DUE0");
+    lv_obj_center(clockDueText);
     lv_arc_set_value(clockBatArc, 0);
     lv_label_set_text(clockBatLabel, "0");
+    lv_obj_align_to(clockBatLabel, clockBatArc, LV_ALIGN_CENTER, 0, 0);
     return;
   }
 
   const RtcTimestamp display = toClockDisplayTimestamp(timestamp);
-  const String time = formatRtcTime(display);
-  lv_label_set_text(clockTime, time.substring(0, 5).c_str());
+  char hourBuffer[3];
+  char minuteBuffer[3];
+  std::snprintf(hourBuffer, sizeof(hourBuffer), "%02u", static_cast<unsigned>(display.hour));
+  std::snprintf(minuteBuffer, sizeof(minuteBuffer), "%02u", static_cast<unsigned>(display.minute));
+  lv_label_set_text(clockTime, hourBuffer);
+  lv_label_set_text(clockColon, ":");
+  lv_obj_set_style_text_opa(clockColon, clockColonOpacity(millis()), 0);
+  lv_label_set_text(clockMinute, minuteBuffer);
 
   static const char* weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
   lv_label_set_text(clockDayLabel, weekdays[weekdayIndex(display.year, display.month, display.date)]);
@@ -637,6 +668,7 @@ void updateClockUI() {
   char dueBuffer[8];
   std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE%u", static_cast<unsigned>(activeCardCount()));
   lv_label_set_text(clockDueText, dueBuffer);
+  lv_obj_center(clockDueText);
 
   std::int32_t batteryLevel = M5.Power.getBatteryLevel();
   if (batteryLevel < 0) {
@@ -658,6 +690,7 @@ void updateClockUI() {
   char batteryBuffer[8];
   std::snprintf(batteryBuffer, sizeof(batteryBuffer), "%d", static_cast<int>(batteryLevel));
   lv_label_set_text(clockBatLabel, batteryBuffer);
+  lv_obj_align_to(clockBatLabel, clockBatArc, LV_ALIGN_CENTER, 0, 0);
 }
 
 void drawStatusPage() {
@@ -1676,7 +1709,7 @@ void showClockPage() {
 }
 
 void updateClockPage(uint32_t now) {
-  if (currentPage == Page::Clock && now - lastClockRefreshAt >= 1000) {
+  if (currentPage == Page::Clock && now - lastClockRefreshAt >= 100) {
     lastClockRefreshAt = now;
     needsRender = true;
   }

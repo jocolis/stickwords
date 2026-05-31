@@ -405,6 +405,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_font_montserrat_48", source)
         self.assertIn("lv_arc_create", source)
         self.assertIn("lv_label_create", source)
+        self.assertIn("clockColonOpacity", source)
         self.assertIn("DUE", source)
         self.assertIn("lv_init()", setup_body)
         self.assertIn("lv_disp_drv_register", setup_body)
@@ -423,6 +424,11 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("lv_obj_invalidate(clockScr)", source)
         self.assertIn("lv_obj_set_style_bg_opa(clockScr, LV_OPA_COVER, 0)", source)
+        self.assertIn("lv_obj_set_style_bg_opa(clockCheckCircle, LV_OPA_COVER, 0)", source)
+        self.assertIn("lv_obj_set_style_bg_opa(clockDueBg, LV_OPA_COVER, 0)", source)
+        self.assertIn("lv_obj_set_style_text_opa(clockColon", source)
+        self.assertIn("lv_obj_align_to(clockBatLabel, clockBatArc, LV_ALIGN_CENTER, 0, 0)", source)
+        self.assertIn("lv_obj_center(clockDueText)", source)
         self.assertLess(
             render_body.index("if (currentPage == Page::Clock)"),
             render_body.index("M5.Display.fillScreen(BLACK)"),
@@ -860,6 +866,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertLess(setup_body.index("startSetupPortal()"), setup_body.rindex("showClockPage()"))
         self.assertIn("currentPage == Page::Clock", update_clock_body)
         self.assertIn("now - lastClockRefreshAt", update_clock_body)
+        self.assertIn(">= 100", update_clock_body)
         self.assertIn("needsRender = true", update_clock_body)
         self.assertIn("updateClockPage(now)", loop_body)
         self.assertIn("updateClockUI()", draw_clock_body)
