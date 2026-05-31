@@ -199,9 +199,13 @@ static lv_disp_drv_t lvDispDrv;
 
 lv_obj_t* clockScr = nullptr;
 lv_obj_t* clockTime = nullptr;
+lv_obj_t* clockTimeBold = nullptr;
 lv_obj_t* clockColon = nullptr;
+lv_obj_t* clockColonBold = nullptr;
 lv_obj_t* clockMinute = nullptr;
+lv_obj_t* clockMinuteBold = nullptr;
 lv_obj_t* clockDayLabel = nullptr;
+lv_obj_t* clockDayLabelBold = nullptr;
 lv_obj_t* clockDateLabel = nullptr;
 lv_obj_t* clockDueBg = nullptr;
 lv_obj_t* clockDueText = nullptr;
@@ -608,21 +612,42 @@ void createClockUI() {
   lv_obj_set_style_text_font(clockTime, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockTime, lv_color_white(), 0);
 
+  clockTimeBold = lv_label_create(clockScr);
+  lv_obj_set_pos(clockTimeBold, 11, 34);
+  lv_obj_set_style_text_font(clockTimeBold, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clockTimeBold, lv_color_white(), 0);
+
   clockColon = lv_label_create(clockScr);
   lv_label_set_text(clockColon, ":");
   lv_obj_set_pos(clockColon, 74, 34);
   lv_obj_set_style_text_font(clockColon, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockColon, lv_color_hex(0x8F839D), 0);
 
+  clockColonBold = lv_label_create(clockScr);
+  lv_label_set_text(clockColonBold, ":");
+  lv_obj_set_pos(clockColonBold, 75, 34);
+  lv_obj_set_style_text_font(clockColonBold, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clockColonBold, lv_color_hex(0x8F839D), 0);
+
   clockMinute = lv_label_create(clockScr);
   lv_obj_set_pos(clockMinute, 95, 34);
   lv_obj_set_style_text_font(clockMinute, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockMinute, lv_color_white(), 0);
 
+  clockMinuteBold = lv_label_create(clockScr);
+  lv_obj_set_pos(clockMinuteBold, 96, 34);
+  lv_obj_set_style_text_font(clockMinuteBold, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clockMinuteBold, lv_color_white(), 0);
+
   clockDayLabel = lv_label_create(clockScr);
   lv_obj_set_pos(clockDayLabel, 10, 90);
   lv_obj_set_style_text_font(clockDayLabel, &lv_font_montserrat_24, 0);
   lv_obj_set_style_text_color(clockDayLabel, lv_color_hex(0xEF4444), 0);
+
+  clockDayLabelBold = lv_label_create(clockScr);
+  lv_obj_set_pos(clockDayLabelBold, 11, 90);
+  lv_obj_set_style_text_font(clockDayLabelBold, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_color(clockDayLabelBold, lv_color_hex(0xEF4444), 0);
 
   clockDateLabel = lv_label_create(clockScr);
   lv_obj_set_pos(clockDateLabel, 70, 90);
@@ -659,9 +684,13 @@ void updateClockUI() {
   const RtcTimestamp timestamp = currentClockTimestamp();
   if (!isValidRtcTimestamp(timestamp)) {
     lv_label_set_text(clockTime, "RTC invalid");
+    lv_label_set_text(clockTimeBold, "RTC invalid");
     lv_label_set_text(clockColon, "");
+    lv_label_set_text(clockColonBold, "");
     lv_label_set_text(clockMinute, "");
+    lv_label_set_text(clockMinuteBold, "");
     lv_label_set_text(clockDayLabel, "Sync needed");
+    lv_label_set_text(clockDayLabelBold, "Sync needed");
     lv_label_set_text(clockDateLabel, "");
     lv_label_set_text(clockDueText, "DUE0");
     lv_obj_center(clockDueText);
@@ -677,12 +706,18 @@ void updateClockUI() {
   std::snprintf(hourBuffer, sizeof(hourBuffer), "%02u", static_cast<unsigned>(display.hour));
   std::snprintf(minuteBuffer, sizeof(minuteBuffer), "%02u", static_cast<unsigned>(display.minute));
   lv_label_set_text(clockTime, hourBuffer);
+  lv_label_set_text(clockTimeBold, hourBuffer);
   lv_label_set_text(clockColon, ":");
-  lv_obj_set_style_text_opa(clockColon, clockColonOpacity(millis()), 0);
+  lv_label_set_text(clockColonBold, ":");
+  const lv_opa_t colonOpacity = clockColonOpacity(millis());
+  lv_obj_set_style_text_opa(clockColon, colonOpacity, 0);
+  lv_obj_set_style_text_opa(clockColonBold, colonOpacity, 0);
   lv_label_set_text(clockMinute, minuteBuffer);
+  lv_label_set_text(clockMinuteBold, minuteBuffer);
 
   static const char* weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
   lv_label_set_text(clockDayLabel, weekdays[weekdayIndex(display.year, display.month, display.date)]);
+  lv_label_set_text(clockDayLabelBold, weekdays[weekdayIndex(display.year, display.month, display.date)]);
 
   char dateBuffer[4];
   std::snprintf(dateBuffer, sizeof(dateBuffer), "%u", static_cast<unsigned>(display.date));
