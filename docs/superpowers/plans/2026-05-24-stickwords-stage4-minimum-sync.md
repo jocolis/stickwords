@@ -930,8 +930,8 @@ ipconfig
 ```cpp
 #pragma once
 
-#define STICKWORDS_WIFI_SSID "actual-2.4ghz-ssid"
-#define STICKWORDS_WIFI_PASSWORD "actual-password"
+#define STICKWORDS_WIFI_SSID "<your-2.4ghz-ssid>"
+#define STICKWORDS_WIFI_PASSWORD "<your-wifi-password>"
 #define STICKWORDS_SERVER_URL "http://PC_LAN_IP:8000"
 ```
 

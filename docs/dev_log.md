@@ -560,7 +560,7 @@
 完成内容：
 
 - 排查 M5Stick 显示 `Sync failed / check server` 的链路。
-- 确认 PC 当前仍是 `192.168.5.105:8000`，但本机请求 `/admin` 和 `/api/device/tasks` 会超时。
+- 确认 PC 当前仍是 `192.168.x.x:8000`，但本机请求 `/admin` 和 `/api/device/tasks` 会超时。
 - 发现后端使用标准库 `wsgiref.simple_server.make_server` 的单线程服务器，一个卡住的连接可能阻塞后续管理页和 M5Stick 同步请求。
 - 新增 `ThreadedWSGIServer`，让 PC 后端可以并发处理请求。
 - 停止卡住的旧后端进程后，用新代码重启后端。
@@ -574,7 +574,7 @@
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
 - 本机和局域网接口均返回 200：
   `http://127.0.0.1:8000/api/device/tasks?limit=20`
-  `http://192.168.5.105:8000/api/device/tasks?limit=20`
+  `http://192.168.x.x:8000/api/device/tasks?limit=20`
 
 遇到的问题与决策：
 
@@ -644,8 +644,8 @@
 
 真机验证：
 
-- 用户在 M5Stick C Plus 串口中确认 Wi-Fi 已连接到 `192.168.5.172`。
-- 当 PC 后端不可达时，固件请求 `http://192.168.5.105:8000/api/device/tasks?limit=20` 返回 `Sync failed status=-1`，随后成功 `Loaded cached cards=1` 并进入缓存复习。
+- 用户在 M5Stick C Plus 串口中确认 Wi-Fi 已连接到 `192.168.x.x`。
+- 当 PC 后端不可达时，固件请求 `http://192.168.x.x:8000/api/device/tasks?limit=20` 返回 `Sync failed status=-1`，随后成功 `Loaded cached cards=1` 并进入缓存复习。
 - 离线评分并重启后，固件日志显示 `Loaded pending reviews=1`，说明待上传评分已从 flash 恢复。
 - PC 后端恢复可达后，固件成功 POST 到 `/api/device/reviews`，收到 `{"accepted": 1, "skipped_duplicate": 0, "failed": 0, "errors": []}`。
 - 再次重启后，固件日志显示 `Loaded pending reviews=0`，说明补传成功后本地 pending 队列已清空。
@@ -980,3 +980,17 @@ Verification:
 
 Next:
 - Stage 6 is closed. Recommended next milestone: prepare GitHub publication materials and repository hygiene before expanding firmware scope further.
+
+## 2026-05-31 GitHub publication prep: README and privacy audit
+
+Completed:
+- Added a bilingual `README.md` with English and Chinese setup instructions, firmware upload steps, runtime setup portal usage, testing commands, and privacy notes.
+- Added an MIT `LICENSE`.
+- Added `docs/github_publication_checklist.md` with safe-to-publish files, must-stay-private files, and pre-push audit commands.
+- Strengthened `.gitignore` for `.env`, `.env.*`, and `*.log`.
+- Confirmed `firmware/include/secrets.h` and `data/*.csv` are ignored and not tracked by Git.
+- Sanitized tracked docs that contained exact real-device LAN examples to generic `192.168.x.x`.
+
+Notes:
+- A PC admin LAN URL such as `http://192.168.x.x:8000` is normal and needed for M5Stick setup. It is not usually internet-routable, but exact local IPs are unnecessary in public docs or screenshots.
+- Real Wi-Fi credentials, API keys, personal vocabulary CSV files, and `firmware/include/secrets.h` must stay private.

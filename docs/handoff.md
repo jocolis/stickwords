@@ -197,8 +197,8 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 
 On the real M5Stick C Plus, Stage 4 was validated with these serial-log signals:
 
-- Wi-Fi connected at `192.168.5.172`.
-- PC backend was reachable at `http://192.168.5.105:8000`.
+- Wi-Fi connected at a private LAN address such as `192.168.x.x`.
+- PC backend was reachable at a private LAN URL such as `http://192.168.x.x:8000`.
 - When the backend was unreachable, firmware logged `Sync failed status=-1`, then loaded `Loaded cached cards=1` and continued with cached review cards.
 - After an offline review and reboot, firmware logged `Loaded pending reviews=1`, proving the pending queue survived power loss/restart.
 - After the backend became reachable again, firmware posted to `/api/device/reviews` and received `{"accepted": 1, "skipped_duplicate": 0, "failed": 0, "errors": []}`.

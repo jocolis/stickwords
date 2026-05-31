@@ -275,7 +275,7 @@ String setupPageHtml(const String& message = "") {
   html += "\"></label>";
   html += "<label>StickWords Server URL<input name=\"server\" value=\"";
   html += htmlEscape(runtimeConfig.serverUrl);
-  html += "\" placeholder=\"http://192.168.5.105:8000\"></label>";
+  html += "\" placeholder=\"http://192.168.x.x:8000\"></label>";
   html += "<button type=\"submit\">Save and restart</button></form></body></html>";
   return html;
 }

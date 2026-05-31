@@ -53,7 +53,7 @@ The M5Stick serves a small HTML form with these fields:
 
 - Wi-Fi SSID
 - Wi-Fi password
-- StickWords server URL, for example `http://192.168.5.105:8000`
+- StickWords server URL, for example `http://192.168.x.x:8000`
 
 After submit, the firmware validates and saves the configuration to ESP32 flash, shows `Saved, restarting`, then restarts.
 
