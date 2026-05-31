@@ -408,6 +408,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_label_create", source)
         self.assertIn("clockColonOpacity", source)
         self.assertIn("constexpr uint32_t kClockRefreshMs = 50", source)
+        self.assertIn("constexpr uint32_t kClockColonPulseMs = 2000", source)
         self.assertIn("constexpr lv_opa_t kClockColonMinOpacity = 0", source)
         self.assertIn("constexpr lv_opa_t kClockColonMaxOpacity = 255", source)
         self.assertIn("DUE", source)

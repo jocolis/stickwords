@@ -1007,3 +1007,15 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-05-31 firmware polish: slower clock colon breathing
+
+Completed:
+- Extended the LVGL clock colon breathing cycle from 1 second to 2 seconds for a calmer visual rhythm.
+- Kept the 50 ms clock refresh interval and opacity range unchanged.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
