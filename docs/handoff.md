@@ -175,7 +175,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware offline fallback can select due cards from the most recently synced 7-day offline package using BM8563 RTC time.
 - Firmware offline scheduling is still limited to the cached package; it does not cache the full PC vocabulary.
 - Device-side scheduling is intentionally a small SM-2 approximation; the PC backend remains the source of truth after pending events upload.
-- Firmware flash usage is tight after the Stage 6 M5Unified/LVGL migration: latest build used 94.8% of the configured firmware partition.
+- Firmware flash usage is still worth monitoring after the Stage 6 M5Unified/LVGL migration. Stage 6A LVGL trimming reduced the latest clean build to 90.1% of the configured firmware partition.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
@@ -188,7 +188,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 ## Future Improvements
 
 - Automatic PC/backend discovery, for example via mDNS, UDP broadcast, or a setup-page helper that can provide the current LAN server URL without manual copying.
-- Reduce firmware size or adjust the partition strategy if future LVGL screens/assets push flash usage past the current partition limit.
+- Continue firmware size reduction, or adjust the partition strategy, if future LVGL screens/assets push flash usage back toward the current partition limit.
 
 ## Real-Device Validation Notes
 

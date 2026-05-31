@@ -871,3 +871,22 @@ Verification:
 
 Notes:
 - Flash usage is now tight because LVGL and M5Unified pull in larger libraries. Future UI work should watch firmware size before adding more LVGL widgets/assets.
+
+## 2026-05-31 Stage 6A implementation: LVGL firmware size reduction
+
+Completed:
+- Trimmed `lv_conf.h` so the firmware keeps the LVGL widgets used by the clock page (`label` and `arc`) and disables unused widgets, themes, layouts, file-system adapters, image libraries, and extra components.
+- Replaced the broad `#include <lvgl.h>` with specific LVGL submodule headers so unused extra headers do not force incompatible dependencies into the build.
+- Kept the existing Stage 6 clock UI behavior unchanged.
+
+Verification:
+- Focused Stage 6 tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage6_platformio_uses_m5unified_and_lvgl tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_page_uses_lvgl_without_stage5e_idle tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh -v`
+- Full firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- Clean PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run --target clean; C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result improved from RAM 36.4% / Flash 94.8% to RAM 36.3% / Flash 90.1%.
+
+Notes:
+- The build log still compiles many LVGL source files, but the configuration and linker now remove more unused code from the final firmware image.

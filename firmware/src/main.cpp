@@ -3,7 +3,13 @@
 #include <M5Unified.h>
 #include <Preferences.h>
 #include <WebServer.h>
-#include <lvgl.h>
+#include <src/core/lv_disp.h>
+#include <src/core/lv_obj.h>
+#include <src/font/lv_symbol_def.h>
+#include <src/hal/lv_hal_disp.h>
+#include <src/misc/lv_timer.h>
+#include <src/widgets/lv_arc.h>
+#include <src/widgets/lv_label.h>
 #include <WiFi.h>
 #include <cmath>
 #include <cstdint>
