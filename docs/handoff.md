@@ -15,7 +15,7 @@ Completed milestones:
 - Stage 3C-2 rating-page double-shake `good`, validated on the real device.
 - Stage 4 PC device sync API, firmware HTTP sync path, cached task fallback, pending-review recovery, device setup portal, and captive portal setup assist.
 - Stage 5A RTC calibration from backend sync time.
-- Stage 5C idle auto power-off after 3 minutes without user interaction.
+- Stage 5C idle auto power-off after 7 minutes without user interaction.
 - Stage 5D RTC-backed offline due scheduling.
 
 ## How To Run The PC Backend
@@ -158,8 +158,8 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - keeps the LVGL clock page stable through left/right landscape rotation by invalidating the existing LVGL screen instead of deleting/rebuilding it
   - short-press Button A on the clock page to enter the review/status flow
   - short-press or long-press Button A on `No due cards` returns to the clock page
-  - powers off after 5 minutes without interaction on the clock page
-  - powers off after 3 minutes without Button A, Button B, or double-shake interaction outside setup mode
+  - powers off after 7 minutes without interaction on the clock page
+  - powers off after 7 minutes without Button A, Button B, or double-shake interaction outside setup mode
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
   - loads cached due cards when Wi-Fi or sync fails
@@ -217,10 +217,10 @@ Stage 5C idle power-off validation procedure:
 
 1. Upload the latest firmware.
 2. Boot normally and leave the M5Stick on the clock or review page.
-3. Do not press buttons or shake the device for 3 minutes.
+3. Do not press buttons or shake the device for 7 minutes.
 4. Confirm the screen briefly shows `Power off`, then the device powers off.
-5. Repeat once while pressing Button A or Button B before 3 minutes; confirm the timer restarts.
-6. Enter setup mode and confirm the setup portal is not interrupted by the 3-minute idle timer.
+5. Repeat once while pressing Button A or Button B before 7 minutes; confirm the timer restarts.
+6. Enter setup mode and confirm the setup portal is not interrupted by the 7-minute idle timer.
 
 Real-device result: user confirmed the idle power-off test passed on the M5Stick C Plus.
 
@@ -243,7 +243,7 @@ Stage 6 LVGL clock validation procedure:
 3. Confirm the first screen is the LVGL clock page, with large time, date, due count, check mark, and battery arc.
 4. Confirm Button A short press enters the existing review/status flow.
 5. Confirm left/right landscape auto-rotation still works on the clock page and review pages.
-6. Confirm 3-minute idle power-off still occurs outside setup mode.
+6. Confirm 7-minute idle power-off still occurs outside setup mode.
 7. Confirm setup mode still starts when Button B is held at boot.
 
 Real-device result: user confirmed the Stage 6 clock page is now stable after rotation fixes and final visual polish. The completed clock page includes live time updates, stable 180-degree rotation, Button A return from `No due cards`, a green outlined check indicator, adjusted time spacing, and simulated-bold time/weekday text.

@@ -417,8 +417,8 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_timer_handler()", loop_body)
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("updateClockUI()", clock_body)
-        self.assertIn("constexpr uint32_t kIdlePowerOffMs = 180000", source)
-        self.assertIn("constexpr uint32_t kClockIdlePowerOffMs = 300000", source)
+        self.assertIn("constexpr uint32_t kIdlePowerOffMs = 420000", source)
+        self.assertIn("constexpr uint32_t kClockIdlePowerOffMs = 420000", source)
         self.assertNotIn("kIdleClockReturnMs", source)
 
     def test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh(self):
@@ -936,7 +936,7 @@ class FirmwareProjectTests(unittest.TestCase):
         b_short_body = firmware_function_body(source, "handleButtonBShortPress")
         shake_body = firmware_function_body(source, "updateShakeGood")
 
-        self.assertIn("constexpr uint32_t kIdlePowerOffMs = 180000", source)
+        self.assertIn("constexpr uint32_t kIdlePowerOffMs = 420000", source)
         self.assertIn("uint32_t lastInteractionAt", source)
         self.assertIn("bool powerOffStarted", source)
         self.assertIn("void recordInteraction(uint32_t now)", source)

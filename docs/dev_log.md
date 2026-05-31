@@ -994,3 +994,16 @@ Completed:
 Notes:
 - A PC admin LAN URL such as `http://192.168.x.x:8000` is normal and needed for M5Stick setup. It is not usually internet-routable, but exact local IPs are unnecessary in public docs or screenshots.
 - Real Wi-Fi credentials, API keys, personal vocabulary CSV files, and `firmware/include/secrets.h` must stay private.
+
+## 2026-05-31 firmware polish: extend idle power-off timeout
+
+Completed:
+- Extended idle auto power-off to 7 minutes on both the LVGL clock page and non-setup review/status pages.
+- Kept setup mode excluded from idle power-off so Wi-Fi/server configuration is not interrupted.
+- Updated firmware source tests and handoff validation notes to match the 7-minute timeout.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
