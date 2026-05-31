@@ -890,3 +890,28 @@ Verification:
 
 Notes:
 - The build log still compiles many LVGL source files, but the configuration and linker now remove more unused code from the final firmware image.
+
+## 2026-05-31 Stage 6B polish: clock page validation fixes
+
+Completed:
+- Fixed `No due cards` status handling so Button A can return to the clock without first reading an empty review card slot.
+- Rebuilt the LVGL clock screen after left/right landscape auto-rotation so the clock page follows 180-degree hand-orientation changes.
+- Adjusted the clock layout after real-device testing:
+  - moved the battery arc down slightly
+  - tightened the hour/colon/minute spacing
+  - made the sync check circle use an explicit solid LVGL object style
+  - changed the due badge text to `DUE n` and kept the wider two-digit-friendly badge
+- Exposed colon animation tuning constants:
+  - `kClockRefreshMs`
+  - `kClockColonPulseMs`
+  - `kClockColonMinOpacity`
+  - `kClockColonMaxOpacity`
+
+Verification:
+- Focused Stage 6 tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_page_uses_lvgl_without_stage5e_idle tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_render_does_not_clear_m5gfx_before_lvgl_refresh tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_idle_and_no_due_status_return tests.test_firmware_project.FirmwareProjectTests.test_stage6_clock_rebuilds_lvgl_after_auto_rotation -v`
+- Full firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result: RAM 36.3%, Flash 90.2% of the configured firmware partition.

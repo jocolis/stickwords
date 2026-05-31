@@ -69,6 +69,10 @@ constexpr uint32_t kButtonLongPressMs = 650;
 constexpr uint32_t kOrientationStableMs = 500;
 constexpr uint32_t kIdlePowerOffMs = 180000;
 constexpr uint32_t kClockIdlePowerOffMs = 300000;
+constexpr uint32_t kClockRefreshMs = 50;
+constexpr uint32_t kClockColonPulseMs = 1000;
+constexpr lv_opa_t kClockColonMinOpacity = 0;
+constexpr lv_opa_t kClockColonMaxOpacity = 255;
 constexpr uint32_t kShakeWindowMs = 650;
 constexpr uint32_t kShakeCooldownMs = 900;
 constexpr uint8_t kClockDisplayUtcOffsetHours = 8;
@@ -222,6 +226,7 @@ RtcTimestamp toClockDisplayTimestamp(const RtcTimestamp& timestamp);
 String formatRtcTime(const RtcTimestamp& timestamp);
 uint32_t idleTimeoutMs();
 size_t activeCardCount();
+void createClockUI();
 
 const char* ratingName(Rating rating) {
   switch (rating) {
@@ -448,6 +453,10 @@ void updateAutoRotation(uint32_t now) {
 
   currentRotation = detectedRotation;
   M5.Display.setRotation(currentRotation);
+  if (currentPage == Page::Clock) {
+    createClockUI();
+    lastClockRefreshAt = 0;
+  }
   needsRender = true;
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
                 static_cast<unsigned>(currentRotation), accelX, accelY, accelZ);
@@ -540,9 +549,12 @@ int weekdayIndex(uint16_t year, uint8_t month, uint8_t date) {
 }
 
 lv_opa_t clockColonOpacity(uint32_t now) {
-  const uint16_t phase = now % 1000;
-  const uint16_t rising = phase <= 500 ? phase : 1000 - phase;
-  return static_cast<lv_opa_t>(70 + (rising * 185U) / 500U);
+  const uint16_t phase = now % kClockColonPulseMs;
+  const uint16_t halfPulse = kClockColonPulseMs / 2;
+  const uint16_t rising = phase <= halfPulse ? phase : kClockColonPulseMs - phase;
+  return static_cast<lv_opa_t>(
+      kClockColonMinOpacity +
+      (rising * (kClockColonMaxOpacity - kClockColonMinOpacity)) / halfPulse);
 }
 
 void createClockUI() {
@@ -557,6 +569,7 @@ void createClockUI() {
   lv_obj_set_style_pad_all(clockScr, 0, 0);
 
   clockCheckCircle = lv_obj_create(clockScr);
+  lv_obj_remove_style_all(clockCheckCircle);
   lv_obj_set_size(clockCheckCircle, 14, 14);
   lv_obj_set_pos(clockCheckCircle, 10, 6);
   lv_obj_set_style_radius(clockCheckCircle, LV_RADIUS_CIRCLE, 0);
@@ -593,12 +606,12 @@ void createClockUI() {
 
   clockColon = lv_label_create(clockScr);
   lv_label_set_text(clockColon, ":");
-  lv_obj_set_pos(clockColon, 82, 34);
+  lv_obj_set_pos(clockColon, 78, 34);
   lv_obj_set_style_text_font(clockColon, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockColon, lv_color_hex(0x8F839D), 0);
 
   clockMinute = lv_label_create(clockScr);
-  lv_obj_set_pos(clockMinute, 106, 34);
+  lv_obj_set_pos(clockMinute, 95, 34);
   lv_obj_set_style_text_font(clockMinute, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(clockMinute, lv_color_white(), 0);
 
@@ -614,7 +627,7 @@ void createClockUI() {
 
   clockBatArc = lv_arc_create(clockScr);
   lv_obj_set_size(clockBatArc, 56, 56);
-  lv_obj_align(clockBatArc, LV_ALIGN_RIGHT_MID, -12, 0);
+  lv_obj_align(clockBatArc, LV_ALIGN_RIGHT_MID, -12, 8);
   lv_arc_set_rotation(clockBatArc, 270);
   lv_arc_set_bg_angles(clockBatArc, 0, 360);
   lv_arc_set_range(clockBatArc, 0, 100);
@@ -672,7 +685,7 @@ void updateClockUI() {
   lv_label_set_text(clockDateLabel, dateBuffer);
 
   char dueBuffer[8];
-  std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE%u", static_cast<unsigned>(activeCardCount()));
+  std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE %u", static_cast<unsigned>(activeCardCount()));
   lv_label_set_text(clockDueText, dueBuffer);
   lv_obj_center(clockDueText);
 
@@ -1757,7 +1770,7 @@ void showClockPage() {
 }
 
 void updateClockPage(uint32_t now) {
-  if (currentPage == Page::Clock && now - lastClockRefreshAt >= 100) {
+  if (currentPage == Page::Clock && now - lastClockRefreshAt >= kClockRefreshMs) {
     lastClockRefreshAt = now;
     needsRender = true;
   }
@@ -2156,7 +2169,6 @@ bool tryReRatePrevious() {
 
 void handleButtonAShortPress() {
   recordInteraction(millis());
-  const Card card = currentCard();
   switch (currentPage) {
     case Page::Status:
       if (std::strcmp(statusLine1, "No due cards") == 0) {
@@ -2169,14 +2181,17 @@ void handleButtonAShortPress() {
     case Page::Word:
       setContentPage(Page::Meaning, 0);
       break;
-    case Page::Meaning:
+    case Page::Meaning: {
+      const Card card = currentCard();
       if (hasMoreContentPage(card.meaning)) {
         setContentPage(Page::Meaning, findNextContentPageStart(card.meaning, contentPageStart));
       } else {
         setContentPage(Page::Example, 0);
       }
       break;
-    case Page::Example:
+    }
+    case Page::Example: {
+      const Card card = currentCard();
       if (hasMoreContentPage(card.example)) {
         setContentPage(Page::Example, findNextContentPageStart(card.example, contentPageStart));
       } else {
@@ -2188,11 +2203,14 @@ void handleButtonAShortPress() {
                       static_cast<unsigned>(currentCardIndex), ratingName(selectedRating));
       }
       break;
-    case Page::Rating:
+    }
+    case Page::Rating: {
+      const Card card = currentCard();
       selectedRating = nextRating(selectedRating);
       Serial.printf("Rating changed word=%s rating=%s\n", card.word, ratingName(selectedRating));
       needsRender = true;
       break;
+    }
     case Page::Done:
       resetReviewSet();
       break;
@@ -2208,7 +2226,6 @@ void handleButtonALongPress() {
 
 void handleButtonBShortPress() {
   recordInteraction(millis());
-  const Card card = currentCard();
   switch (currentPage) {
     case Page::Status:
       break;
@@ -2217,23 +2234,29 @@ void handleButtonBShortPress() {
     case Page::Word:
       tryReRatePrevious();
       break;
-    case Page::Meaning:
+    case Page::Meaning: {
+      const Card card = currentCard();
       if (contentPageStart > 0) {
         setContentPage(Page::Meaning, findPreviousContentPageStart(card.meaning, contentPageStart));
       } else {
         setPage(Page::Word);
       }
       break;
-    case Page::Example:
+    }
+    case Page::Example: {
+      const Card card = currentCard();
       if (contentPageStart > 0) {
         setContentPage(Page::Example, findPreviousContentPageStart(card.example, contentPageStart));
       } else {
         setContentPage(Page::Meaning, findPreviousContentPageStart(card.meaning, std::strlen(card.meaning)));
       }
       break;
-    case Page::Rating:
+    }
+    case Page::Rating: {
+      const Card card = currentCard();
       setContentPage(Page::Example, findPreviousContentPageStart(card.example, std::strlen(card.example)));
       break;
+    }
     case Page::Done:
       tryReRatePrevious();
       break;
