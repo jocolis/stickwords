@@ -422,6 +422,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("if (currentPage == Page::Clock)", render_body)
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("lv_obj_invalidate(clockScr)", source)
+        self.assertIn("lv_obj_set_style_bg_opa(clockScr, LV_OPA_COVER, 0)", source)
         self.assertLess(
             render_body.index("if (currentPage == Page::Clock)"),
             render_body.index("M5.Display.fillScreen(BLACK)"),
@@ -913,9 +914,10 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("savePendingReviews()", idle_body)
         self.assertIn("pendingReviewCount > 0", idle_body)
         self.assertIn("powerOffStarted", idle_body)
+        self.assertIn("now < lastInteractionAt", idle_body)
         self.assertIn("now - lastInteractionAt < kIdlePowerOffMs", idle_body)
-        self.assertIn("handleIdlePowerOff(now)", loop_body)
-        self.assertLess(loop_body.index("setupPortalActive"), loop_body.index("handleIdlePowerOff(now)"))
+        self.assertIn("handleIdlePowerOff(millis())", loop_body)
+        self.assertLess(loop_body.index("setupPortalActive"), loop_body.index("handleIdlePowerOff(millis())"))
         self.assertIn("lastInteractionAt = millis()", setup_body)
         self.assertIn("lastInteractionAt = now", interaction_body)
         self.assertIn("recordInteraction(millis())", a_short_body)

@@ -539,6 +539,7 @@ void createClockUI() {
   clockScr = lv_obj_create(nullptr);
   lv_obj_clear_flag(clockScr, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(clockScr, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(clockScr, LV_OPA_COVER, 0);
   lv_obj_set_style_pad_all(clockScr, 0, 0);
 
   clockCheckCircle = lv_obj_create(clockScr);
@@ -1651,7 +1652,7 @@ void recordInteraction(uint32_t now) {
 }
 
 void handleIdlePowerOff(uint32_t now) {
-  if (powerOffStarted || now - lastInteractionAt < kIdlePowerOffMs) {
+  if (powerOffStarted || now < lastInteractionAt || now - lastInteractionAt < kIdlePowerOffMs) {
     return;
   }
 
@@ -2236,7 +2237,7 @@ void loop() {
     handleButtonBShortPress();
   }
 
-  handleIdlePowerOff(now);
+  handleIdlePowerOff(millis());
   if (currentPage == Page::Clock) {
     lv_timer_handler();
   }
