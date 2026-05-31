@@ -154,8 +154,11 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - sets the BM8563 RTC from the backend `generated_at` timestamp after successful sync
   - logs RTC status at boot and after calibration with `RTC now=... valid=1` or `RTC now=invalid valid=0`
   - shows a UTC+8 clock page after normal boot while keeping RTC/sync timestamps internally in UTC
-  - renders the clock page with LVGL, following the Figma Make layout reference with large time, date, due count, check mark, and battery arc
+  - renders the clock page with LVGL, following the Figma Make layout reference with large time, pulsing colon, weekday/date, due count, outlined check mark, and battery arc
+  - keeps the LVGL clock page stable through left/right landscape rotation by invalidating the existing LVGL screen instead of deleting/rebuilding it
   - short-press Button A on the clock page to enter the review/status flow
+  - short-press or long-press Button A on `No due cards` returns to the clock page
+  - powers off after 5 minutes without interaction on the clock page
   - powers off after 3 minutes without Button A, Button B, or double-shake interaction outside setup mode
   - shows an explicit status page when Wi-Fi fails, sync fails, or there are no due cards
   - caches the most recently synced due-card batch in ESP32 flash
@@ -175,7 +178,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware offline fallback can select due cards from the most recently synced 7-day offline package using BM8563 RTC time.
 - Firmware offline scheduling is still limited to the cached package; it does not cache the full PC vocabulary.
 - Device-side scheduling is intentionally a small SM-2 approximation; the PC backend remains the source of truth after pending events upload.
-- Firmware flash usage is still worth monitoring after the Stage 6 M5Unified/LVGL migration. Stage 6A LVGL trimming reduced the latest clean build to 90.1% of the configured firmware partition.
+- Firmware flash usage is still worth monitoring after the Stage 6 M5Unified/LVGL migration. The latest Stage 6 clock build is about 90.2% of the configured firmware partition.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
@@ -243,11 +246,13 @@ Stage 6 LVGL clock validation procedure:
 6. Confirm 3-minute idle power-off still occurs outside setup mode.
 7. Confirm setup mode still starts when Button B is held at boot.
 
+Real-device result: user confirmed the Stage 6 clock page is now stable after rotation fixes and final visual polish. The completed clock page includes live time updates, stable 180-degree rotation, Button A return from `No due cards`, a green outlined check indicator, adjusted time spacing, and simulated-bold time/weekday text.
+
 ## Next Stage
 
-Choose the next product milestone:
+Recommended next product milestone:
 
-1. Real-device validation for Stage 6 LVGL clock page.
+1. Prepare the GitHub publication path: README, screenshots, license, repository hygiene, and first public-facing project description.
 2. Improve M5Stick Chinese rendering.
 3. Improve offline-review semantics beyond the last cached due-card batch.
-4. Prepare the GitHub publication path: README, screenshots, license, and repository hygiene.
+4. Add automatic PC/backend discovery so users do not need to manually copy the LAN server URL.

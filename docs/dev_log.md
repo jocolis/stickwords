@@ -947,3 +947,36 @@ Verification:
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
 - Build result: RAM 36.3%, Flash 90.2% of the configured firmware partition.
+
+## 2026-05-31 Stage 6 completion: LVGL clock page accepted
+
+Completed:
+- Finished the Stage 6 LVGL clock page work after real-device validation on the M5Stick C Plus.
+- Final clock-page behavior:
+  - boots to the LVGL clock page after normal sync/config handling
+  - shows UTC+8 local time derived from RTC/backend sync
+  - refreshes time continuously instead of only at boot
+  - supports left/right landscape rotation without re-running Wi-Fi/sync and without black screen
+  - uses a Figma-inspired layout with large time, pulsing colon, weekday/date, due badge, check indicator, and battery arc
+  - returns from `No due cards` to the clock with Button A
+  - keeps the clock-page idle power-off timeout at 5 minutes
+- Final visual polish:
+  - green outlined check circle with green check mark
+  - two-digit-friendly `DUE n` badge
+  - centered battery number
+  - adjusted battery position and time spacing
+  - simulated bold time/weekday by drawing a same-size 1px offset label layer, avoiding the need to add larger LVGL font assets
+- Learned during validation:
+  - Do not delete or rebuild the active LVGL screen during rotation.
+  - Do not clear the M5GFX panel during clock-page rotation before LVGL has redrawn.
+  - Keep LVGL clock redraws explicit with invalidation and `lv_refr_now(nullptr)`.
+
+Verification:
+- Full firmware source tests passed after the final visual polish:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed after the final visual polish:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Latest build result: RAM 36.3%, Flash 90.2% of the configured firmware partition.
+
+Next:
+- Stage 6 is closed. Recommended next milestone: prepare GitHub publication materials and repository hygiene before expanding firmware scope further.
