@@ -12,3 +12,4 @@ firmware/.vscode/launch.json
 firmware/.vscode/extensions.json
 firmware/.vscode/ipch/
 firmware/include/secrets.h
+docs/superpowers/

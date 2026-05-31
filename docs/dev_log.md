@@ -775,7 +775,7 @@
 - pending reviews 从“同词覆盖”改为 append-only 事件队列；Wi-Fi 恢复后上传多条事件，PC 按事件 ID 去重并按时间顺序重放，最终更新 `vocab.csv` 的当前状态。
 
 文档：
-- 设计文档：`docs/superpowers/specs/2026-05-26-stickwords-offline-due-scheduling-design.md`
+- 设计文档曾保存在本地内部规划归档中；公开仓库不再跟踪 `docs/superpowers/`。
 
 下一步：
 - 用户确认设计文档后，进入实现计划阶段。
@@ -1025,11 +1025,21 @@ Verification:
 Completed:
 - Reviewed public-facing documentation for private paths, local-machine wording, and internal collaboration phrasing.
 - Refined `README.md`, `docs/handoff.md`, and `docs/stage3a_platformio_quickstart.md` so setup instructions use repository-relative paths and neutral public wording.
-- Left `docs/dev_log.md` and `docs/superpowers/` as development archives; they intentionally preserve implementation history, plans, and validation notes.
+- Left `docs/dev_log.md` as a development archive; it intentionally preserves implementation history and validation notes.
 
 Notes:
 - Public docs should explain local-only configuration without conversational wording such as "for our project" or machine-specific wording such as "on this PC".
 - Development archives can contain historical context, but README should frame them clearly as archives rather than primary user instructions.
+
+## 2026-06-01 GitHub publication prep: remove internal planning archive
+
+Completed:
+- Removed `docs/superpowers/` from Git tracking so agent-oriented implementation plans and specs are no longer part of the public repository's latest tree.
+- Added `docs/superpowers/` to `.gitignore` so the local internal archive can remain in the working directory without being committed again.
+
+Notes:
+- This is a normal Git removal from the current public tree. It does not rewrite existing Git history.
+- If historical removal is required later, use a dedicated history-rewrite pass and coordinate the force-push impact first.
 
 ## 2026-05-31 firmware polish: review complete returns to clock
 
