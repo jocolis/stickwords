@@ -1019,3 +1019,14 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-05-31 GitHub publication prep: public documentation wording
+
+Completed:
+- Reviewed public-facing documentation for private paths, local-machine wording, and internal collaboration phrasing.
+- Refined `README.md`, `docs/handoff.md`, and `docs/stage3a_platformio_quickstart.md` so setup instructions use repository-relative paths and neutral public wording.
+- Left `docs/dev_log.md` and `docs/superpowers/` as development archives; they intentionally preserve implementation history, plans, and validation notes.
+
+Notes:
+- Public docs should explain local-only configuration without conversational wording such as "for our project" or machine-specific wording such as "on this PC".
+- Development archives can contain historical context, but README should frame them clearly as archives rather than primary user instructions.

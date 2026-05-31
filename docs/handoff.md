@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Stage 4 minimum PC-to-M5Stick sync is implemented and validated on the real M5Stick C Plus.
+The PC-to-M5Stick sync path is implemented and has been validated on an M5Stick C Plus.
 Quick Add helper scripts are available for adding example-backed words from the PC.
 
 Completed milestones:
@@ -21,7 +21,7 @@ Completed milestones:
 ## How To Run The PC Backend
 
 ```powershell
-cd C:\Users\ASUS\Documents\M5Stick
+cd stickwords
 python app.py --host 0.0.0.0 --port 8000 --data-dir data
 ```
 
@@ -54,27 +54,25 @@ Open: 192.168.4.1
 
 The admin page displays the suggested StickWords server URL. Use the PC's LAN IPv4 address, not `localhost`, because `localhost` on the M5Stick means the M5Stick itself.
 
-`firmware\include\secrets.h` remains a developer fallback and must not contain committed real credentials.
+`firmware\include\secrets.h` is a local-only fallback configuration file created from `firmware\include\secrets.example.h`.
 
 ## How To Build, Upload, And Monitor Firmware
 
 Open a PlatformIO terminal, then run:
 
 ```powershell
-cd C:\Users\ASUS\Documents\M5Stick\firmware
+cd firmware
 pio run
 pio run --target upload --upload-port COM5
 pio device monitor --port COM5
 ```
 
-Current Stage 4 expected boot log: `StickWords Stage 4 boot`.
-
-Note: PlatformIO previously auto-detected COM1 on this PC, but the M5Stick appeared as COM5. Use COM5 explicitly unless the device list changes.
+Replace `COM5` with the serial port assigned to your M5Stick if needed.
 
 ## How To Test
 
 ```powershell
-cd C:\Users\ASUS\Documents\M5Stick
+cd stickwords
 $env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
@@ -83,7 +81,7 @@ Expected result: all tests pass.
 Firmware build:
 
 ```powershell
-cd C:\Users\ASUS\Documents\M5Stick\firmware
+cd firmware
 pio run
 ```
 
@@ -105,7 +103,7 @@ Manual meaning entry still works without an API key.
 Run directly:
 
 ```powershell
-cd C:\Users\ASUS\Documents\M5Stick
+cd stickwords
 python scripts\quick_add.py --example "This change has a clear benefit."
 ```
 
@@ -222,7 +220,7 @@ Stage 5C idle power-off validation procedure:
 5. Repeat once while pressing Button A or Button B before 7 minutes; confirm the timer restarts.
 6. Enter setup mode and confirm the setup portal is not interrupted by the 7-minute idle timer.
 
-Real-device result: user confirmed the idle power-off test passed on the M5Stick C Plus.
+Real-device result: the idle power-off test passed on an M5Stick C Plus.
 
 Stage 5D offline due scheduling validation procedure:
 
@@ -238,7 +236,7 @@ Stage 5D offline due scheduling validation procedure:
 
 Stage 6 LVGL clock validation procedure:
 
-1. Build and upload the firmware from `C:\Users\ASUS\Documents\M5Stick\firmware`.
+1. Build and upload the firmware from the `firmware` directory.
 2. Boot normally with a valid runtime Wi-Fi/server config.
 3. Confirm the first screen is the LVGL clock page, with large time, date, due count, check mark, and battery arc.
 4. Confirm Button A short press enters the existing review/status flow.
@@ -246,7 +244,7 @@ Stage 6 LVGL clock validation procedure:
 6. Confirm 7-minute idle power-off still occurs outside setup mode.
 7. Confirm setup mode still starts when Button B is held at boot.
 
-Real-device result: user confirmed the Stage 6 clock page is now stable after rotation fixes and final visual polish. The completed clock page includes live time updates, stable 180-degree rotation, Button A return from `No due cards`, a green outlined check indicator, adjusted time spacing, and simulated-bold time/weekday text.
+Real-device result: the Stage 6 clock page is stable after rotation fixes and final visual polish. The completed clock page includes live time updates, stable 180-degree rotation, Button A return from `No due cards`, a green outlined check indicator, adjusted time spacing, and simulated-bold time/weekday text.
 
 ## Next Stage
 

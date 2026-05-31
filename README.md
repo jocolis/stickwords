@@ -28,7 +28,7 @@ scripts/                       Windows launcher and Quick Add helper scripts
 firmware/                      PlatformIO firmware for M5Stick C Plus
 firmware/include/secrets.example.h
                                Safe firmware config template
-docs/                          Roadmap, handoff, development log, and plans
+docs/                          User notes, handoff, roadmap, and development archive
 tests/                         Python and firmware source tests
 ```
 
@@ -166,7 +166,7 @@ pio run
 
 ## Current Status
 
-StickWords is an early personal project. The current system has a working PC backend, web admin page, M5Stick sync path, offline fallback, RTC-backed clock, review flow, and LVGL clock page. See `docs/handoff.md` for the latest implementation notes and validation procedures.
+StickWords is an early-stage project. The current system has a working PC backend, web admin page, M5Stick sync path, offline fallback, RTC-backed clock, review flow, and LVGL clock page. See `docs/handoff.md` for implementation notes and validation procedures.
 
 ## Troubleshooting
 
@@ -210,7 +210,7 @@ scripts/                       Windows 启动器和 Quick Add 脚本
 firmware/                      M5Stick C Plus 的 PlatformIO 固件
 firmware/include/secrets.example.h
                                安全的固件配置模板
-docs/                          路线图、交接文档、开发日志和计划
+docs/                          使用说明、交接文档、路线图和开发归档
 tests/                         Python 测试和固件源码测试
 ```
 
@@ -344,7 +344,7 @@ pio run
 
 ## 当前状态
 
-StickWords 目前是早期个人项目，但已经具备可演示的闭环：PC 后端、网页管理页、M5Stick 同步、离线缓存、RTC 时钟、复习流程和 LVGL 时钟页。最新实现细节和真机验证流程见 `docs/handoff.md`。
+StickWords 目前是早期项目，但已经具备可演示的闭环：PC 后端、网页管理页、M5Stick 同步、离线缓存、RTC 时钟、复习流程和 LVGL 时钟页。实现细节和真机验证流程见 `docs/handoff.md`。
 
 ## 常见问题
 

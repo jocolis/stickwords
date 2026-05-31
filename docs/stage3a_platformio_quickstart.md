@@ -2,7 +2,7 @@
 
 This guide is for the first StickWords M5Stick C Plus hardware check.
 
-Important environment note: the current Codex shell cannot find `pio`, so real firmware build, upload, and serial monitor checks need to be run in VSCode PlatformIO Terminal or another environment where PlatformIO CLI is available.
+Prerequisite: run these commands in VS Code's PlatformIO Terminal or another terminal where the PlatformIO CLI (`pio`) is available.
 
 ## What This Stage Verifies
 
@@ -22,7 +22,7 @@ In VSCode:
 1. Open the repository folder:
 
    ```text
-   C:\Users\ASUS\Documents\M5Stick
+   stickwords
    ```
 
 2. Open this file:
@@ -38,7 +38,7 @@ In VSCode:
 From a PlatformIO terminal:
 
 ```powershell
-cd C:\Users\ASUS\Documents\M5Stick\firmware
+cd firmware
 pio run
 ```
 
@@ -58,7 +58,7 @@ Connect the M5Stick C Plus by USB, then run:
 pio run --target upload
 ```
 
-On this PC, PlatformIO once auto-detected COM1, but the M5Stick was actually COM5. If upload fails with `No serial data received`, list devices and specify the M5Stick port:
+If upload fails with `No serial data received`, list devices and specify the M5Stick port:
 
 ```powershell
 pio device list
