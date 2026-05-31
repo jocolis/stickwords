@@ -38,6 +38,15 @@ Requirements:
 
 - Windows, macOS, or Linux with Python 3.11+
 
+Clone and enter the repository:
+
+```powershell
+git clone https://github.com/jocolis/stickwords.git
+cd stickwords
+```
+
+No third-party Python package is required for the core backend. The server uses the Python standard library.
+
 Run:
 
 ```powershell
@@ -64,6 +73,8 @@ http://192.168.x.x:8000
 
 Use that LAN URL on the M5Stick setup page. Do not use `localhost` on the M5Stick, because `localhost` means the M5Stick itself.
 
+The first time you add or import words, StickWords creates `data/vocab.csv`. Files under `data/` are intentionally ignored by Git.
+
 ## M5Stick Firmware
 
 Requirements:
@@ -73,6 +84,14 @@ Requirements:
 - PlatformIO
 - 2.4 GHz Wi-Fi
 - PC and M5Stick on the same reachable LAN
+
+Before building, create the local firmware fallback config:
+
+```powershell
+Copy-Item firmware\include\secrets.example.h firmware\include\secrets.h
+```
+
+Edit `firmware\include\secrets.h` with placeholder values or your local values. This file is required by the current firmware build, even though normal runtime configuration is done later through the M5Stick setup portal. Do not commit `secrets.h`.
 
 Build:
 
@@ -149,6 +168,14 @@ pio run
 
 StickWords is an early personal project. The current system has a working PC backend, web admin page, M5Stick sync path, offline fallback, RTC-backed clock, review flow, and LVGL clock page. See `docs/handoff.md` for the latest implementation notes and validation procedures.
 
+## Troubleshooting
+
+- If `pio` is not recognized, install PlatformIO and restart VS Code or your terminal.
+- If upload auto-detects the wrong port, specify the port explicitly, for example `--upload-port COM5`.
+- If the M5Stick cannot sync but Wi-Fi connects, check that the PC backend is running with `--host 0.0.0.0`, the PC firewall allows inbound port `8000`, and the M5Stick server URL uses the PC LAN IPv4 address.
+- If the firmware build fails with a missing `secrets.h` message, copy `firmware/include/secrets.example.h` to `firmware/include/secrets.h`.
+- If the phone does not automatically open the setup portal, manually open `http://192.168.4.1` after connecting to `StickWords-Setup`.
+
 ## License
 
 MIT. See `LICENSE`.
@@ -191,6 +218,15 @@ tests/                         Python 测试和固件源码测试
 
 需要 Python 3.11+。
 
+克隆并进入项目：
+
+```powershell
+git clone https://github.com/jocolis/stickwords.git
+cd stickwords
+```
+
+核心后端不需要第三方 Python 包，使用 Python 标准库即可运行。
+
 ```powershell
 python app.py --host 0.0.0.0 --port 8000 --data-dir data
 ```
@@ -215,6 +251,8 @@ http://192.168.x.x:8000
 
 M5Stick 配置时要填这个局域网地址，不要填 `localhost`。在 M5Stick 上，`localhost` 指的是 M5Stick 自己，不是 PC。
 
+第一次添加或导入单词时，StickWords 会创建 `data/vocab.csv`。`data/` 下的文件默认不会进入 Git。
+
 ## 刷 M5Stick 固件
 
 需要：
@@ -224,6 +262,14 @@ M5Stick 配置时要填这个局域网地址，不要填 `localhost`。在 M5Sti
 - PlatformIO
 - 2.4 GHz Wi-Fi
 - PC 和 M5Stick 在同一个可互相访问的局域网内
+
+编译前先创建本地固件兜底配置：
+
+```powershell
+Copy-Item firmware\include\secrets.example.h firmware\include\secrets.h
+```
+
+然后编辑 `firmware\include\secrets.h`，可以填占位值，也可以填你的本地值。当前固件编译仍然要求这个文件存在，虽然日常网络配置主要通过 M5Stick setup portal 完成。不要提交 `secrets.h`。
 
 编译：
 
@@ -299,6 +345,14 @@ pio run
 ## 当前状态
 
 StickWords 目前是早期个人项目，但已经具备可演示的闭环：PC 后端、网页管理页、M5Stick 同步、离线缓存、RTC 时钟、复习流程和 LVGL 时钟页。最新实现细节和真机验证流程见 `docs/handoff.md`。
+
+## 常见问题
+
+- 如果提示无法识别 `pio`，请安装 PlatformIO，并重启 VS Code 或终端。
+- 如果上传时自动识别错端口，请显式指定端口，例如 `--upload-port COM5`。
+- 如果 M5Stick 能连上 Wi-Fi 但不能同步，请确认 PC 后端用 `--host 0.0.0.0` 启动，Windows 防火墙允许 `8000` 端口入站，并且 M5Stick 填的是 PC 的局域网 IPv4 地址。
+- 如果固件编译提示缺少 `secrets.h`，请把 `firmware/include/secrets.example.h` 复制为 `firmware/include/secrets.h`。
+- 如果手机没有自动弹出 setup portal，请连接 `StickWords-Setup` 后手动打开 `http://192.168.4.1`。
 
 ## 许可证
 
