@@ -453,6 +453,10 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_obj_center(clockDueText)", source)
         self.assertIn("lv_obj_set_size(clockDueBg, 70, 22)", source)
         self.assertIn('"DUE %u"', source)
+        self.assertIn("size_t clockDueCount()", source)
+        self.assertIn("!reviewResults[i].hasRating", source)
+        self.assertIn("clockDueCount()", source)
+        self.assertNotIn("activeCardCount()));", firmware_function_body(source, "updateClockUI"))
         self.assertNotIn("lv_obj_del(clockScr)", source)
         self.assertLess(
             render_body.index("if (currentPage == Page::Clock)"),

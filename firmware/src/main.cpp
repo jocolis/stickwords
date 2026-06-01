@@ -407,6 +407,17 @@ size_t activeCardCount() {
   return syncedCardCount > kMaxSyncedCards ? kMaxSyncedCards : syncedCardCount;
 }
 
+size_t clockDueCount() {
+  size_t dueCount = 0;
+  const size_t cardCount = activeCardCount();
+  for (size_t i = 0; i < cardCount; ++i) {
+    if (!reviewResults[i].hasRating) {
+      dueCount += 1;
+    }
+  }
+  return dueCount;
+}
+
 const char* currentWordId() {
   return syncedCards[currentCardIndex].id;
 }
@@ -739,7 +750,7 @@ void updateClockUI() {
   updateClockDatePosition();
 
   char dueBuffer[8];
-  std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE %u", static_cast<unsigned>(activeCardCount()));
+  std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE %u", static_cast<unsigned>(clockDueCount()));
   lv_label_set_text(clockDueText, dueBuffer);
   lv_obj_center(clockDueText);
 

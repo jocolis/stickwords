@@ -1078,3 +1078,16 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-06-01 firmware polish: clock due count after review
+
+Completed:
+- Fixed the LVGL clock `DUE` badge so it counts unreviewed cards in the current review set instead of the total synced card count.
+- Returning to the clock after completing a review session now shows `DUE 0` for that session.
+- Added firmware source coverage for the new `clockDueCount()` helper.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
