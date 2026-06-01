@@ -191,6 +191,7 @@ bool needsRender = true;
 bool setupPortalActive = false;
 bool powerOffStarted = false;
 bool statusReturnsToClock = false;
+bool currentBootSyncOk = false;
 
 static lv_disp_draw_buf_t lvDrawBuf;
 static lv_color_t lvBuf1[240 * 16];
@@ -591,6 +592,7 @@ void createClockUI() {
   lv_obj_set_style_text_color(clockCheckMark, lv_color_hex(0x22C55E), 0);
   lv_obj_set_style_text_font(clockCheckMark, &lv_font_montserrat_12, 0);
   lv_obj_center(clockCheckMark);
+  lv_obj_add_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN);
 
   clockDueBg = lv_obj_create(clockScr);
   lv_obj_set_size(clockDueBg, 70, 22);
@@ -679,6 +681,12 @@ void createClockUI() {
 void updateClockUI() {
   if (clockScr == nullptr) {
     createClockUI();
+  }
+
+  if (!currentBootSyncOk) {
+    lv_obj_add_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_clear_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN);
   }
 
   const RtcTimestamp timestamp = currentClockTimestamp();
@@ -1245,6 +1253,7 @@ void handleSetupPortalLoop() {
 }
 
 bool connectWifi() {
+  currentBootSyncOk = false;
   drawStatusMessage("WiFi...");
   WiFi.mode(WIFI_STA);
   WiFi.begin(runtimeConfig.ssid, runtimeConfig.password);
@@ -1878,6 +1887,7 @@ bool selectOfflineDueCards() {
 }
 
 bool fetchDeviceTasks() {
+  currentBootSyncOk = false;
   drawStatusMessage("Sync...");
   HTTPClient http;
   const String url = runtimeServerUrl() + "/api/device/tasks?limit=20";
@@ -1916,6 +1926,7 @@ bool fetchDeviceTasks() {
   }
   setRtcFromGeneratedAt(serverGeneratedAt);
   tasksFetchedAtMs = millis();
+  currentBootSyncOk = true;
 
   if (syncedCardCount == 0) {
     Serial.println("No due cards");

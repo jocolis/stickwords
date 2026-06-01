@@ -456,6 +456,25 @@ class FirmwareProjectTests(unittest.TestCase):
             render_body.index("M5.Display.fillScreen(BLACK)"),
         )
 
+    def test_stage6_clock_check_icon_requires_current_sync_success(self):
+        source = firmware_source()
+        clock_ui_body = firmware_function_body(source, "updateClockUI")
+        fetch_body = firmware_function_body(source, "fetchDeviceTasks")
+
+        self.assertIn("bool currentBootSyncOk = false", source)
+        self.assertIn("lv_obj_add_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN)", clock_ui_body)
+        self.assertIn("lv_obj_clear_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN)", clock_ui_body)
+        self.assertLess(
+            clock_ui_body.index("lv_obj_add_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN)"),
+            clock_ui_body.index("lv_obj_clear_flag(clockCheckCircle, LV_OBJ_FLAG_HIDDEN)"),
+        )
+        self.assertIn("currentBootSyncOk = false", fetch_body)
+        self.assertIn("currentBootSyncOk = true", fetch_body)
+        self.assertLess(
+            fetch_body.index("if (status != 200)"),
+            fetch_body.index("currentBootSyncOk = true"),
+        )
+
     def test_stage4_firmware_does_not_fallback_to_sample_cards(self):
         source = firmware_source()
         active_body = firmware_function_body(source, "activeCardCount")

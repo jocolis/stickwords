@@ -1052,3 +1052,16 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-06-01 firmware polish: clock sync check indicator
+
+Completed:
+- Fixed the LVGL clock page check indicator so it is hidden by default and only appears after the current boot successfully fetches and parses `/api/device/tasks` from the PC backend.
+- Kept cached/offline fallback usable, but it no longer shows the green check as if a fresh Wi-Fi/backend sync had succeeded.
+- Added a firmware source regression test covering the check indicator's sync-success binding.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
