@@ -1065,3 +1065,16 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-06-01 firmware polish: dynamic clock date spacing
+
+Completed:
+- Fixed the LVGL clock date row so the date number is positioned after the measured weekday label width instead of using a fixed `x=70` coordinate.
+- This prevents wider weekday labels such as `MON` from crowding a one-digit date such as `1`.
+- Added firmware source coverage for the dynamic date-position helper.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`

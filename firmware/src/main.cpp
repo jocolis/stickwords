@@ -678,6 +678,12 @@ void createClockUI() {
   lv_scr_load(clockScr);
 }
 
+void updateClockDatePosition() {
+  lv_obj_update_layout(clockDayLabelBold);
+  const lv_coord_t weekdayWidth = lv_obj_get_width(clockDayLabelBold);
+  lv_obj_set_pos(clockDateLabel, 10 + weekdayWidth + 10, 90);
+}
+
 void updateClockUI() {
   if (clockScr == nullptr) {
     createClockUI();
@@ -730,6 +736,7 @@ void updateClockUI() {
   char dateBuffer[4];
   std::snprintf(dateBuffer, sizeof(dateBuffer), "%u", static_cast<unsigned>(display.date));
   lv_label_set_text(clockDateLabel, dateBuffer);
+  updateClockDatePosition();
 
   char dueBuffer[8];
   std::snprintf(dueBuffer, sizeof(dueBuffer), "DUE %u", static_cast<unsigned>(activeCardCount()));
