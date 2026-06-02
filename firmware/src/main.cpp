@@ -82,7 +82,7 @@ constexpr int16_t kContentX = 6;
 constexpr int16_t kContentY = 6;
 constexpr int16_t kContentMaxX = 234;
 constexpr int16_t kContentMaxY = 132;
-constexpr int16_t kContentLineHeight = 18;
+constexpr int16_t kContentLineHeight = 21;
 constexpr float kOrientationThreshold = 0.45F;
 constexpr float kShakeThreshold = 1.65F;
 constexpr float kShakeReleaseThreshold = 1.25F;
@@ -214,6 +214,17 @@ lv_obj_t* clockBatArc = nullptr;
 lv_obj_t* clockBatLabel = nullptr;
 lv_obj_t* clockCheckMark = nullptr;
 lv_obj_t* clockCheckCircle = nullptr;
+lv_obj_t* reviewScr = nullptr;
+lv_obj_t* reviewWordLabel = nullptr;
+lv_obj_t* reviewBodyBox = nullptr;
+lv_obj_t* reviewBodyLabel = nullptr;
+lv_obj_t* reviewRatingWordLabel = nullptr;
+lv_obj_t* reviewRatingForgotLabel = nullptr;
+lv_obj_t* reviewRatingHardLabel = nullptr;
+lv_obj_t* reviewRatingGoodLabel = nullptr;
+lv_obj_t* reviewDoneLabel = nullptr;
+lv_obj_t* reviewDoneCountLabel = nullptr;
+char reviewBodyBuffer[kMaxMeaningLength + kMaxExampleLength + 8] = {};
 
 void lvglFlushCb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t* pixels) {
   const uint32_t w = area->x2 - area->x1 + 1;
@@ -474,6 +485,12 @@ void updateAutoRotation(uint32_t now) {
       lv_obj_invalidate(clockScr);
     }
     lastClockRefreshAt = 0;
+  } else if (currentPage == Page::Word || currentPage == Page::Meaning ||
+             currentPage == Page::Example || currentPage == Page::Rating ||
+             currentPage == Page::Done) {
+    if (reviewScr != nullptr) {
+      lv_obj_invalidate(reviewScr);
+    }
   }
   needsRender = true;
   Serial.printf("Orientation rotation=%u ax=%.2f ay=%.2f az=%.2f\n",
@@ -695,6 +712,169 @@ void updateClockDatePosition() {
   lv_obj_set_pos(clockDateLabel, 10 + weekdayWidth + 10, 90);
 }
 
+void createReviewUI() {
+  reviewScr = lv_obj_create(nullptr);
+  lv_obj_clear_flag(reviewScr, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_style_bg_color(reviewScr, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(reviewScr, LV_OPA_COVER, 0);
+  lv_obj_set_style_pad_all(reviewScr, 0, 0);
+
+  reviewWordLabel = lv_label_create(reviewScr);
+  lv_obj_set_width(reviewWordLabel, 228);
+  lv_obj_set_height(reviewWordLabel, 112);
+  lv_obj_set_pos(reviewWordLabel, 6, 38);
+  lv_label_set_long_mode(reviewWordLabel, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_align(reviewWordLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_color(reviewWordLabel, lv_color_white(), 0);
+  lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_24, 0);
+
+  reviewBodyBox = lv_obj_create(reviewScr);
+  lv_obj_remove_style_all(reviewBodyBox);
+  lv_obj_set_size(reviewBodyBox, 228, 129);
+  lv_obj_set_pos(reviewBodyBox, 6, 6);
+  lv_obj_clear_flag(reviewBodyBox, LV_OBJ_FLAG_SCROLLABLE);
+
+  reviewBodyLabel = lv_label_create(reviewBodyBox);
+  lv_obj_set_width(reviewBodyLabel, 228);
+  lv_obj_set_pos(reviewBodyLabel, 0, 0);
+  lv_label_set_long_mode(reviewBodyLabel, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_color(reviewBodyLabel, lv_color_white(), 0);
+  lv_obj_set_style_text_font(reviewBodyLabel, &lv_font_montserrat_18, 0);
+  lv_obj_set_style_text_line_space(reviewBodyLabel, 1, 0);
+
+  reviewRatingWordLabel = lv_label_create(reviewScr);
+  lv_obj_set_width(reviewRatingWordLabel, 228);
+  lv_obj_set_height(reviewRatingWordLabel, 32);
+  lv_obj_set_pos(reviewRatingWordLabel, 6, 8);
+  lv_label_set_long_mode(reviewRatingWordLabel, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_align(reviewRatingWordLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_color(reviewRatingWordLabel, lv_color_white(), 0);
+  lv_obj_set_style_text_font(reviewRatingWordLabel, &lv_font_montserrat_24, 0);
+
+  reviewRatingForgotLabel = lv_label_create(reviewScr);
+  lv_obj_set_pos(reviewRatingForgotLabel, 34, 48);
+  lv_obj_set_style_text_font(reviewRatingForgotLabel, &lv_font_montserrat_24, 0);
+
+  reviewRatingHardLabel = lv_label_create(reviewScr);
+  lv_obj_set_pos(reviewRatingHardLabel, 34, 76);
+  lv_obj_set_style_text_font(reviewRatingHardLabel, &lv_font_montserrat_24, 0);
+
+  reviewRatingGoodLabel = lv_label_create(reviewScr);
+  lv_obj_set_pos(reviewRatingGoodLabel, 34, 104);
+  lv_obj_set_style_text_font(reviewRatingGoodLabel, &lv_font_montserrat_24, 0);
+
+  reviewDoneLabel = lv_label_create(reviewScr);
+  lv_obj_set_width(reviewDoneLabel, 228);
+  lv_obj_set_height(reviewDoneLabel, 32);
+  lv_obj_set_pos(reviewDoneLabel, 6, 38);
+  lv_label_set_text(reviewDoneLabel, "Review complete");
+  lv_obj_set_style_text_align(reviewDoneLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_color(reviewDoneLabel, lv_color_white(), 0);
+  lv_obj_set_style_text_font(reviewDoneLabel, &lv_font_montserrat_24, 0);
+
+  reviewDoneCountLabel = lv_label_create(reviewScr);
+  lv_obj_set_width(reviewDoneCountLabel, 228);
+  lv_obj_set_height(reviewDoneCountLabel, 26);
+  lv_obj_set_pos(reviewDoneCountLabel, 6, 76);
+  lv_obj_set_style_text_align(reviewDoneCountLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_color(reviewDoneCountLabel, lv_color_hex(0x22C55E), 0);
+  lv_obj_set_style_text_font(reviewDoneCountLabel, &lv_font_montserrat_18, 0);
+}
+
+void hideReviewObjects() {
+  lv_obj_add_flag(reviewWordLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewBodyBox, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewBodyLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewRatingWordLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewRatingForgotLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewRatingHardLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewRatingGoodLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewDoneLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(reviewDoneCountLabel, LV_OBJ_FLAG_HIDDEN);
+}
+
+void drawReviewLvgl() {
+  if (reviewScr == nullptr) {
+    return;
+  }
+
+  lv_scr_load(reviewScr);
+  hideReviewObjects();
+
+  if (currentPage == Page::Word) {
+    const Card card = currentCard();
+    lv_label_set_text(reviewWordLabel, card.word);
+    const size_t wordLength = std::strlen(card.word);
+    if (wordLength > 22) {
+      lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_14, 0);
+      lv_obj_set_pos(reviewWordLabel, 6, 36);
+    } else if (wordLength > 10) {
+      lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_20, 0);
+      lv_obj_set_pos(reviewWordLabel, 6, 40);
+    } else {
+      lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_28, 0);
+      lv_obj_set_pos(reviewWordLabel, 6, 44);
+    }
+    lv_obj_clear_flag(reviewWordLabel, LV_OBJ_FLAG_HIDDEN);
+  } else if (currentPage == Page::Meaning || currentPage == Page::Example) {
+    const Card card = currentCard();
+    const char* text = currentPage == Page::Meaning ? card.meaning : card.example;
+    lv_obj_set_style_text_font(reviewBodyLabel, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_line_space(reviewBodyLabel, 1, 0);
+    const size_t start = skipBreakChars(text, contentPageStart);
+    const size_t nextStart = findNextContentPageStart(text, contentPageStart);
+    const size_t textLength = std::strlen(text);
+    size_t copyLength = nextStart > start ? nextStart - start : textLength - start;
+    const bool hasMore = nextStart < textLength;
+    const size_t suffixLength = hasMore ? 4 : 0;
+    if (copyLength + suffixLength >= sizeof(reviewBodyBuffer)) {
+      copyLength = sizeof(reviewBodyBuffer) - suffixLength - 1;
+    }
+    std::memcpy(reviewBodyBuffer, text + start, copyLength);
+    reviewBodyBuffer[copyLength] = '\0';
+    if (hasMore) {
+      std::strcat(reviewBodyBuffer, " ...");
+    }
+    lv_label_set_text(reviewBodyLabel, reviewBodyBuffer);
+    lv_obj_clear_flag(reviewBodyBox, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(reviewBodyLabel, LV_OBJ_FLAG_HIDDEN);
+  } else if (currentPage == Page::Rating) {
+    const Card card = currentCard();
+    lv_label_set_text(reviewRatingWordLabel, card.word);
+    lv_label_set_text(reviewRatingForgotLabel, "Forgot");
+    lv_label_set_text(reviewRatingHardLabel, "Hard");
+    lv_label_set_text(reviewRatingGoodLabel, "Good");
+    lv_obj_set_style_text_color(reviewRatingForgotLabel,
+                                selectedRating == Rating::Forgot ? lv_color_hex(0xEF4444)
+                                                                 : lv_color_hex(0xA3A3A3),
+                                0);
+    lv_obj_set_style_text_color(reviewRatingHardLabel,
+                                selectedRating == Rating::Hard ? lv_color_hex(0xEAB308)
+                                                               : lv_color_hex(0xA3A3A3),
+                                0);
+    lv_obj_set_style_text_color(reviewRatingGoodLabel,
+                                selectedRating == Rating::Good ? lv_color_hex(0x22C55E)
+                                                               : lv_color_hex(0xA3A3A3),
+                                0);
+    lv_obj_clear_flag(reviewRatingWordLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(reviewRatingForgotLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(reviewRatingHardLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(reviewRatingGoodLabel, LV_OBJ_FLAG_HIDDEN);
+  } else if (currentPage == Page::Done) {
+    char countBuffer[24];
+    std::snprintf(countBuffer, sizeof(countBuffer), "%u/%u rated",
+                  static_cast<unsigned>(activeCardCount()),
+                  static_cast<unsigned>(activeCardCount()));
+    lv_label_set_text(reviewDoneCountLabel, countBuffer);
+    lv_obj_clear_flag(reviewDoneLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(reviewDoneCountLabel, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  lv_obj_invalidate(reviewScr);
+  lv_timer_handler();
+  lv_refr_now(nullptr);
+}
+
 void updateClockUI() {
   if (clockScr == nullptr) {
     createClockUI();
@@ -792,6 +972,7 @@ void drawStatusPage() {
 void drawClockPage() {
   updateClockUI();
   if (clockScr != nullptr) {
+    lv_scr_load(clockScr);
     lv_obj_invalidate(clockScr);
   }
   lv_timer_handler();
@@ -799,8 +980,7 @@ void drawClockPage() {
 }
 
 void drawWordPage() {
-  const Card card = currentCard();
-  drawCenteredText(card.word, 52, 3);
+  drawReviewLvgl();
 }
 
 void drawWrappedContentPage(const char* text) {
@@ -871,13 +1051,11 @@ void drawWrappedContentPage(const char* text) {
 }
 
 void drawMeaningPage() {
-  const Card card = currentCard();
-  drawWrappedContentPage(card.meaning);
+  drawReviewLvgl();
 }
 
 void drawExamplePage() {
-  const Card card = currentCard();
-  drawWrappedContentPage(card.example);
+  drawReviewLvgl();
 }
 
 void drawRatingOption(Rating rating) {
@@ -885,22 +1063,11 @@ void drawRatingOption(Rating rating) {
 }
 
 void drawRatingPage() {
-  const Card card = currentCard();
-  M5.Display.setTextSize(2);
-  M5.Display.print(card.word);
-  M5.Display.println();
-  M5.Display.println();
-  drawRatingOption(Rating::Forgot);
-  drawRatingOption(Rating::Hard);
-  drawRatingOption(Rating::Good);
+  drawReviewLvgl();
 }
 
 void drawDonePage() {
-  drawCenteredText("Review complete", 38, 2);
-  M5.Display.setTextSize(2);
-  M5.Display.setCursor(74, 76);
-  M5.Display.printf("%u/%u rated", static_cast<unsigned>(activeCardCount()),
-                static_cast<unsigned>(activeCardCount()));
+  drawReviewLvgl();
 }
 
 void render() {
@@ -2292,6 +2459,10 @@ void handleButtonALongPress() {
     showClockPage();
     return;
   }
+  if (currentPage == Page::Done) {
+    showClockPage();
+    return;
+  }
   if (currentPage == Page::Rating) {
     submitRating();
   }
@@ -2355,6 +2526,7 @@ void setup() {
   lvDispDrv.draw_buf = &lvDrawBuf;
   lv_disp_drv_register(&lvDispDrv);
   createClockUI();
+  createReviewUI();
 
   readImu();
   currentRotation = detectLandscapeRotation();

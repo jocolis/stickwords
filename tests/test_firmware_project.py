@@ -7,10 +7,15 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 FIRMWARE_MAIN = ROOT / "firmware" / "src" / "main.cpp"
+FIRMWARE_LV_CONF = ROOT / "firmware" / "include" / "lv_conf.h"
 
 
 def firmware_source():
     return FIRMWARE_MAIN.read_text(encoding="utf-8")
+
+
+def firmware_lv_conf_source():
+    return FIRMWARE_LV_CONF.read_text(encoding="utf-8")
 
 
 def firmware_function_body(source, function_name):
@@ -352,6 +357,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("m5stack/M5Unified", config)
         self.assertIn("lvgl/lvgl@^8.3.11", config)
         self.assertIn("-D LV_CONF_INCLUDE_SIMPLE", config)
+        self.assertIn("-D LV_LVGL_H_INCLUDE_SIMPLE", config)
         self.assertNotIn("m5stack/M5StickCPlus", config)
         self.assertTrue(lv_conf.exists())
         text = lv_conf.read_text(encoding="utf-8")
@@ -418,6 +424,7 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("lv_timer_handler()", loop_body)
         self.assertIn("drawClockPage()", render_body)
         self.assertIn("updateClockUI()", clock_body)
+        self.assertIn("lv_scr_load(clockScr)", clock_body)
         self.assertIn("constexpr uint32_t kIdlePowerOffMs = 420000", source)
         self.assertIn("constexpr uint32_t kClockIdlePowerOffMs = 420000", source)
         self.assertNotIn("kIdleClockReturnMs", source)
@@ -537,6 +544,8 @@ class FirmwareProjectTests(unittest.TestCase):
         source = (ROOT / "firmware" / "src" / "main.cpp").read_text(encoding="utf-8")
 
         self.assertIn("constexpr int16_t kContentMaxY", source)
+        self.assertIn("constexpr int16_t kContentMaxY = 132", source)
+        self.assertIn("constexpr int16_t kContentLineHeight = 21", source)
         self.assertIn("size_t nextTokenEnd(", source)
         self.assertIn("size_t findNextContentPageStart(", source)
         self.assertIn("size_t findPreviousContentPageStart(", source)
@@ -1009,10 +1018,62 @@ class FirmwareProjectTests(unittest.TestCase):
     def test_stage6_review_complete_button_a_returns_to_clock(self):
         source = firmware_source()
         a_short_body = firmware_function_body(source, "handleButtonAShortPress")
+        a_long_body = firmware_function_body(source, "handleButtonALongPress")
         done_case = a_short_body[a_short_body.index("case Page::Done:") :]
 
         self.assertIn("showClockPage()", done_case)
+        self.assertIn("currentPage == Page::Done", a_long_body)
+        self.assertIn("showClockPage()", a_long_body)
         self.assertNotIn("resetReviewSet()", done_case)
+
+    def test_stage6_review_pages_use_lvgl_labels(self):
+        source = firmware_source()
+        lv_conf = firmware_lv_conf_source()
+        setup_body = firmware_function_body(source, "setup")
+        word_body = firmware_function_body(source, "drawWordPage")
+        meaning_body = firmware_function_body(source, "drawMeaningPage")
+        example_body = firmware_function_body(source, "drawExamplePage")
+        rating_body = firmware_function_body(source, "drawRatingPage")
+        done_body = firmware_function_body(source, "drawDonePage")
+        review_body = firmware_function_body(source, "drawReviewLvgl")
+
+        self.assertIn("createReviewUI()", source)
+        self.assertIn("createReviewUI()", setup_body)
+        self.assertIn("lv_obj_t* reviewScr", source)
+        self.assertIn("reviewWordLabel = lv_label_create(reviewScr)", source)
+        self.assertIn("reviewBodyBox = lv_obj_create(reviewScr)", source)
+        self.assertIn("lv_obj_set_size(reviewBodyBox, 228, 129)", source)
+        self.assertIn("reviewBodyLabel = lv_label_create(reviewBodyBox)", source)
+        self.assertIn("reviewRatingGoodLabel = lv_label_create(reviewScr)", source)
+        self.assertIn("lv_scr_load(reviewScr)", review_body)
+        self.assertIn("lv_font_montserrat_28", review_body)
+        self.assertIn("lv_label_set_long_mode(reviewWordLabel, LV_LABEL_LONG_WRAP)", source)
+        self.assertIn("lv_label_set_long_mode(reviewBodyLabel, LV_LABEL_LONG_WRAP)", source)
+        self.assertIn("lv_obj_add_flag(reviewBodyBox, LV_OBJ_FLAG_HIDDEN)", source)
+        self.assertIn("lv_obj_clear_flag(reviewBodyBox, LV_OBJ_FLAG_HIDDEN)", review_body)
+        self.assertIn("const size_t wordLength = std::strlen(card.word)", review_body)
+        self.assertIn("wordLength > 22", review_body)
+        self.assertNotIn("LV_FONT_DECLARE(host_grotesk_", source)
+        self.assertNotIn("host_grotesk_", review_body)
+        self.assertIn("lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_14, 0)", review_body)
+        self.assertIn("lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_20, 0)", review_body)
+        self.assertIn("lv_obj_set_style_text_font(reviewWordLabel, &lv_font_montserrat_28, 0)", review_body)
+        self.assertIn("#define LV_FONT_MONTSERRAT_20 1", lv_conf)
+        self.assertIn("#define LV_FONT_MONTSERRAT_28 1", lv_conf)
+        self.assertIn("lv_obj_set_style_text_font(reviewBodyLabel, &lv_font_montserrat_18, 0)", source)
+        self.assertIn("findNextContentPageStart(text, contentPageStart)", review_body)
+        self.assertIn('std::strcat(reviewBodyBuffer, " ...")', review_body)
+        self.assertIn("selectedRating == Rating::Good", review_body)
+        self.assertIn("lv_refr_now(nullptr)", review_body)
+        self.assertLess(review_body.index("if (currentPage == Page::Word)"),
+                        review_body.index("const Card card = currentCard()"))
+        done_branch = review_body[review_body.index("} else if (currentPage == Page::Done)") :]
+        self.assertNotIn("currentCard()", done_branch)
+        self.assertIn("drawReviewLvgl()", word_body)
+        self.assertIn("drawReviewLvgl()", meaning_body)
+        self.assertIn("drawReviewLvgl()", example_body)
+        self.assertIn("drawReviewLvgl()", rating_body)
+        self.assertIn("drawReviewLvgl()", done_body)
 
     def test_stage6_clock_rebuilds_lvgl_after_auto_rotation(self):
         source = firmware_source()
@@ -1039,7 +1100,9 @@ class FirmwareProjectTests(unittest.TestCase):
         self.assertIn("constexpr size_t kMaxOfflineCards = 40", source)
         self.assertIn("board_build.partitions = partitions.csv", platformio)
         self.assertIn("nvs,      data, nvs,     0x9000,  0x5000", partitions)
-        self.assertIn("cache,    data, nvs,     0x190000,0x10000", partitions)
+        self.assertIn("app0,     app,  factory, 0x10000, 0x300000", partitions)
+        self.assertIn("cache,    data, nvs,     0x310000,0x10000", partitions)
+        self.assertIn("spiffs,   data, spiffs,  0x320000,0xE0000", partitions)
         self.assertIn("Preferences cacheStorage", source)
         self.assertIn('cacheStorage.begin("stickcache", false, "cache")', save_body)
         self.assertIn("struct LegacyDeviceCard", source)

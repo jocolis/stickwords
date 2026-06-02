@@ -70,6 +70,26 @@ class StickWordsServiceTests(unittest.TestCase):
             self.assertEqual(word.id, "w-000001")
             self.assertEqual(service.load_words()[0].word, "benefit")
 
+    def test_device_tasks_normalize_smart_punctuation_without_rewriting_csv(self):
+        now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
+        with workspace_temp_dir() as temp_dir:
+            service = StickWordsService(temp_dir, clock=lambda: now)
+            word = service.add_word(
+                "student\u2019s",
+                "someone\u2019s word \u2014 compact",
+                "\u201cDon\u2019t stop\u201d means don\u2019t stop\u2026",
+            )
+
+            payload = service.device_tasks_payload(limit=1)
+            loaded = service.load_words()[0]
+
+            self.assertEqual(loaded.word, "student\u2019s")
+            self.assertEqual(loaded.meaning, "someone\u2019s word \u2014 compact")
+            self.assertEqual(payload["tasks"][0]["id"], word.id)
+            self.assertEqual(payload["tasks"][0]["word"], "student's")
+            self.assertEqual(payload["tasks"][0]["meaning"], "someone's word - compact")
+            self.assertEqual(payload["tasks"][0]["example"], '"Don\'t stop" means don\'t stop...')
+
     def test_edit_and_suspend_word(self):
         now = datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc)
         with workspace_temp_dir() as temp_dir:

@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .test-tmp/
+.npm-cache/
 .env
 .env.*
 *.log
@@ -12,4 +13,6 @@ firmware/.vscode/launch.json
 firmware/.vscode/extensions.json
 firmware/.vscode/ipch/
 firmware/include/secrets.h
+firmware/src/fonts/host_grotesk_*.c
+firmware/third_party/Host_Grotesk/
 docs/superpowers/

@@ -28,6 +28,24 @@ from .scheduler import (
 from .storage import VocabStore
 
 
+DEVICE_TEXT_TRANSLATION = str.maketrans(
+    {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u2026": "...",
+        "\u00a0": " ",
+    }
+)
+
+
+def normalize_device_text(value: str) -> str:
+    return value.translate(DEVICE_TEXT_TRANSLATION)
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -148,9 +166,9 @@ class StickWordsService:
     def _device_card_payload(self, word: Word) -> dict:
         return {
             "id": word.id,
-            "word": word.word,
-            "meaning": word.meaning,
-            "example": word.example,
+            "word": normalize_device_text(word.word),
+            "meaning": normalize_device_text(word.meaning),
+            "example": normalize_device_text(word.example),
             "status": word.status,
             "due_at": format_dt(word.due_at),
             "review_count": word.review_count,

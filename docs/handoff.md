@@ -17,6 +17,7 @@ Completed milestones:
 - Stage 5A RTC calibration from backend sync time.
 - Stage 5C idle auto power-off after 7 minutes without user interaction.
 - Stage 5D RTC-backed offline due scheduling.
+- Stage 6 LVGL clock page, LVGL review pages, review-complete clock return, clock visual polish, and review text layout tuning.
 
 ## How To Run The PC Backend
 
@@ -132,7 +133,9 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
   - `POST /api/device/reviews`
   - bounded review-event processing with accepted-count response
 - Firmware review UI:
-  - word, meaning pages, example pages, rating page, and done page
+  - word, meaning pages, example pages, rating page, and done page render through a dedicated LVGL review screen
+  - uses LVGL Montserrat built-in fonts at runtime after Host Grotesk caused black review pages on the real device
+  - short and medium word pages use larger Montserrat sizes, while very long words stay smaller to reduce wrapping or clipping
   - long meaning and example content can page forward through the single review flow
   - content pages wrap and paginate at English word boundaries where possible
   - compact layout without the old title, page counter, or footer hints
@@ -176,11 +179,13 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 - Firmware offline fallback can select due cards from the most recently synced 7-day offline package using BM8563 RTC time.
 - Firmware offline scheduling is still limited to the cached package; it does not cache the full PC vocabulary.
 - Device-side scheduling is intentionally a small SM-2 approximation; the PC backend remains the source of truth after pending events upload.
-- Firmware flash usage is still worth monitoring after the Stage 6 M5Unified/LVGL migration. The latest Stage 6 clock build is about 90.2% of the configured firmware partition.
+- Firmware app partition was expanded to `0x300000`; the latest Stage 6 UI build is about 47.0% of the configured firmware partition.
+- The dedicated `cache` NVS partition moved to `0x310000`, so existing device-side offline cache may require a fresh sync after flashing the expanded partition table. Main runtime config remains in the unchanged `nvs` partition at `0x9000`.
 - Review correction after a successful upload is sent as a fresh review event; the PC backend accepts idempotent event IDs but does not yet merge correction semantics across different event IDs.
 - Firmware JSON parsing is deliberately small and bounded for the known PC API shape, not a general JSON parser.
 - Setup portal has no password; only enable it intentionally by holding Button B or when no config exists.
 - Captive portal auto-open is best-effort and depends on phone OS/browser behavior. If it does not pop up automatically, open `http://192.168.4.1` manually.
+- Generated Host Grotesk font sources are ignored local exploration assets, not required for the public repository or runtime firmware.
 - No multi-deck support yet.
 - Quick Add requires PC-side Python/Tkinter and does not run on the M5Stick itself.
 - DeepSeek generation requires `DEEPSEEK_API_KEY`; without it, the helper is manual-entry only.
@@ -189,7 +194,7 @@ The intended daily workflow is: copy a sentence in Obsidian or Chrome, press `Ct
 ## Future Improvements
 
 - Automatic PC/backend discovery, for example via mDNS, UDP broadcast, or a setup-page helper that can provide the current LAN server URL without manual copying.
-- Continue firmware size reduction, or adjust the partition strategy, if future LVGL screens/assets push flash usage back toward the current partition limit.
+- Continue firmware size monitoring if future LVGL screens/assets are added.
 
 ## Real-Device Validation Notes
 
@@ -248,9 +253,9 @@ Real-device result: the Stage 6 clock page is stable after rotation fixes and fi
 
 ## Next Stage
 
-Recommended next product milestone:
+Recommended next product milestones:
 
-1. Prepare the GitHub publication path: README, screenshots, license, repository hygiene, and first public-facing project description.
-2. Improve M5Stick Chinese rendering.
+1. Finish repository hygiene for the public GitHub version: review uncommitted changes, commit a stable release snapshot, and add screenshots or short demo media.
+2. Improve M5Stick Chinese rendering when the firmware size budget and font plan are clear.
 3. Improve offline-review semantics beyond the last cached due-card batch.
 4. Add automatic PC/backend discovery so users do not need to manually copy the LAN server URL.

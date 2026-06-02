@@ -1091,3 +1091,113 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-06-01 firmware partition expansion
+
+Completed:
+- Expanded the PlatformIO firmware app partition from `0x180000` to `0x300000`.
+- Moved the dedicated `cache` NVS partition from `0x190000` to `0x310000`, preserving its `0x10000` size.
+- Reduced the unused `spiffs` partition from `0x260000` to `0xE0000`.
+- Updated firmware source coverage so future tests assert the larger app partition layout.
+
+Notes:
+- Main `nvs` remains at `0x9000`, so saved runtime Wi-Fi/server configuration should stay in the same partition.
+- The offline cache partition offset changed, so already cached device tasks may need a fresh sync after flashing this partition table.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result after expansion: RAM 36.3%, Flash 45.1% of the configured firmware partition.
+
+## 2026-06-01 Stage 6D implementation: LVGL review pages
+
+Completed:
+- Migrated the review flow pages from M5GFX immediate text drawing to a dedicated LVGL review screen.
+- Updated the word, meaning, example, rating, and review-complete pages to render through LVGL labels while preserving the existing Button A/Button B flow, content pagination, re-rating path, and shake-to-good behavior.
+- Kept the existing English word-boundary pagination helpers for content pages, then displays each selected page segment in the LVGL body label.
+- Added firmware source coverage for the LVGL review screen and page render path.
+
+Notes:
+- The status/setup pages still use M5GFX direct drawing.
+- This change does not add Chinese font support; it reuses the existing Montserrat LVGL fonts.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result after LVGL review-page migration: RAM 36.5%, Flash 45.1% of the configured firmware partition.
+
+## 2026-06-01 Stage 6E implementation: Host Grotesk review font
+
+Completed:
+- Added Host Grotesk Regular as generated LVGL C fonts for 14, 18, and 24 px ASCII glyphs.
+- Switched the LVGL review pages to Host Grotesk while keeping the clock page on the existing Montserrat LVGL fonts.
+- Added the Host Grotesk OFL license and README under `firmware/third_party/Host_Grotesk/`.
+- Added `LV_LVGL_H_INCLUDE_SIMPLE` so generated LVGL font files include `lvgl.h` correctly in the PlatformIO build.
+- Ignored the temporary local `.npm-cache/` directory used while running `lv_font_conv`.
+
+Notes:
+- The generated Host Grotesk glyph range is `0x20-0x7E`, covering English letters, digits, and common ASCII punctuation only.
+- This does not add Chinese font support.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result after Host Grotesk integration: RAM 36.5%, Flash 45.9% of the configured firmware partition.
+
+## 2026-06-01 Stage 6E follow-up: review font rollback and spacing tune
+
+Completed:
+- Rolled the runtime review pages back to LVGL Montserrat fonts after Host Grotesk caused black review pages on the real M5Stick.
+- Kept the generated Host Grotesk source and license files in the tree for future investigation, but they are not active in the review UI.
+- Normalized smart punctuation in device payloads so curly quotes and dashes from the PC data do not render as missing-glyph boxes on the M5Stick.
+- Tightened review content line spacing and pagination from 24 px to 21 px so the meaning/example pages can use more of the screen.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- Full Python test suite passed after punctuation normalization:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result after rollback and spacing tune: RAM 36.5%, Flash 45.1% of the configured firmware partition.
+
+## 2026-06-01 Stage 6E follow-up: word-page font bump
+
+Completed:
+- Increased only the first review page word font sizing.
+- Medium-length words now use LVGL Montserrat 20 instead of 18.
+- Short words now use LVGL Montserrat 28 instead of 24.
+- Very long words remain on Montserrat 14 to reduce the chance of wrapping or clipping.
+- Enabled the LVGL Montserrat 20 and 28 built-in fonts in `firmware/include/lv_conf.h`.
+
+Verification:
+- Firmware source tests passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest tests.test_firmware_project -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+- Build result after word-page font bump: RAM 36.5%, Flash 47.0% of the configured firmware partition.
+
+## 2026-06-02 Stage 6E wrap-up and cleanup
+
+Completed:
+- Confirmed the current Stage 6 UI work is stable after real-device testing.
+- Updated `docs/handoff.md` so it reflects the real runtime state: review pages use LVGL Montserrat fonts, not Host Grotesk.
+- Documented the latest Stage 6 UI build size as 47.0% of the expanded firmware partition.
+- Removed local Python `__pycache__` directories generated by test runs.
+- Removed an accidental UTF-8 BOM from `firmware/src/main.cpp`.
+
+Notes:
+- Generated Host Grotesk files are local non-runtime exploration assets and are ignored so a public clone does not need them to build or test.
+- `.test-tmp/` is ignored and contains Windows permission-restricted test temp directories; it was left in place rather than force-deleted.
+
+Verification:
+- Full Python test suite passed:
+  `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
+- PlatformIO firmware build passed:
+  `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
