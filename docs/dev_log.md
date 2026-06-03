@@ -1201,3 +1201,18 @@ Verification:
   `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; python -m unittest discover -s tests -v`
 - PlatformIO firmware build passed:
   `C:\Users\ASUS\.platformio\penv\Scripts\pio.exe run`
+
+## 2026-06-03 Stage 7A GitHub display placeholders
+
+Completed:
+- Added bilingual README demo-flow sections describing the PC-to-M5Stick review loop.
+- Added bilingual README screenshot placeholder sections without committing real images.
+- Added `docs/assets/README.md` with planned asset names and privacy checks for future screenshots.
+- Added `CHANGELOG.md` with the `v0.1.0` public release snapshot, implemented features, changes, and known limits.
+
+Notes:
+- Real screenshots are intentionally deferred. Add sanitized images later under `docs/assets/`.
+- No firmware or backend behavior changed in this step.
+
+Verification:
+- Reviewed README and release-note changes by file inspection.
