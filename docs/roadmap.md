@@ -178,10 +178,11 @@ StickWords 是一个运行在 M5Stick C Plus + PC 后端上的轻量背单词系
 
 - `docs/roadmap.md`：阶段路线和范围边界。
 - `docs/design.md`：系统设计和已确认决策。
-- `docs/dev_log.md`：每次阶段工作后的开发日志。
 - `docs/handoff.md`：阶段交接、启动方式、测试方式和已知限制。
+- `CHANGELOG.md`：公开版本变更记录。
+- 内部开发日志保存在本地忽略目录，不作为公开仓库文档发布。
 
-每完成一个阶段，在 `docs/dev_log.md` 记录：
+每完成一个阶段，至少在公开文档或内部日志中记录：
 
 - 日期。
 - 完成内容。

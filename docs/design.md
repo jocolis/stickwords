@@ -429,7 +429,7 @@ PC 工具向 M5Stick 发送 JSON 行：
 
 ```json
 {"type":"set_wifi","ssid":"...","password":"..."}
-{"type":"set_server","url":"http://192.168.1.10:8000"}
+{"type":"set_server","url":"http://192.168.x.x:8000"}
 {"type":"get_status"}
 {"type":"reset_config"}
 ```
@@ -454,7 +454,7 @@ M5Stick 返回 JSON 行：
 
 ```text
 在路由器里给 PC 做 DHCP 保留固定 IP。
-例如长期固定为 http://192.168.1.10:8000。
+例如长期固定为 http://192.168.x.x:8000。
 ```
 
 后续可选：

@@ -26,6 +26,7 @@ Use this before making the StickWords repository public.
 - any real Wi-Fi SSID/password
 - screenshots that show personal vocabulary, API keys, home network names, or browser profile details
 - local planning archives under `docs/superpowers/`
+- local development logs under ignored internal archive directories
 - local exploratory generated fonts under `firmware/src/fonts/host_grotesk_*.c` and `firmware/third_party/Host_Grotesk/`
 
 ## Current Audit Result
@@ -33,6 +34,7 @@ Use this before making the StickWords repository public.
 - `firmware/include/secrets.h` is ignored by `.gitignore`.
 - `data/*.csv` is ignored by `.gitignore`.
 - `docs/superpowers/` is ignored by `.gitignore`.
+- `docs/dev_log.md` is not part of the public tracked docs; the local development log lives under the ignored internal archive.
 - exploratory Host Grotesk generated font assets are ignored by `.gitignore` and are not required by the runtime firmware.
 - `firmware/include/secrets.example.h` contains placeholders only.
 - The tracked docs were sanitized to use generic private LAN examples such as `192.168.x.x`.
@@ -44,7 +46,7 @@ Use this before making the StickWords repository public.
 ```powershell
 git status --short
 git ls-files firmware/include/secrets.h data/vocab.csv
-git ls-files docs/superpowers firmware/src/fonts firmware/third_party/Host_Grotesk
+git ls-files docs/dev_log.md docs/superpowers firmware/src/fonts firmware/third_party/Host_Grotesk
 git check-ignore -v firmware/include/secrets.h data/vocab.csv docs/superpowers firmware/src/fonts/host_grotesk_14.c firmware/third_party/Host_Grotesk
 rg -n "(api[_-]?key|password|secret|token|192\.168\.5\.|DEEPSEEK_API_KEY=)" . --glob "!firmware/.pio/**" --glob "!.git/**" --glob "!.test-tmp/**"
 ```
@@ -52,7 +54,7 @@ rg -n "(api[_-]?key|password|secret|token|192\.168\.5\.|DEEPSEEK_API_KEY=)" . --
 Expected:
 
 - `git status --short` should contain only intentional changes.
-- `git ls-files firmware/include/secrets.h data/vocab.csv docs/superpowers firmware/src/fonts firmware/third_party/Host_Grotesk` should print nothing.
+- `git ls-files firmware/include/secrets.h data/vocab.csv docs/dev_log.md docs/superpowers firmware/src/fonts firmware/third_party/Host_Grotesk` should print nothing.
 - `git check-ignore` should show `.gitignore` rules for those private files.
 - `rg` should not reveal real keys, real passwords, or exact private addresses from your own network.
 

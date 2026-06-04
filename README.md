@@ -46,7 +46,7 @@ scripts/                       Windows launcher and Quick Add helper scripts
 firmware/                      PlatformIO firmware for M5Stick C Plus
 firmware/include/secrets.example.h
                                Safe firmware config template
-docs/                          User notes, handoff, roadmap, and development archive
+docs/                          User notes, handoff, roadmap, and public documentation
 tests/                         Python and firmware source tests
 ```
 
@@ -248,7 +248,7 @@ scripts/                       Windows 启动器和 Quick Add 脚本
 firmware/                      M5Stick C Plus 的 PlatformIO 固件
 firmware/include/secrets.example.h
                                安全的固件配置模板
-docs/                          使用说明、交接文档、路线图和开发归档
+docs/                          使用说明、交接文档、路线图和公开文档
 tests/                         Python 测试和固件源码测试
 ```
 
