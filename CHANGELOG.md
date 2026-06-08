@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.0 - 2026-06-03
+## v0.1.0 - 2026-06-09
 
 Initial public release snapshot for StickWords.
 
