@@ -255,7 +255,7 @@ Real-device result: the Stage 6 clock page is stable after rotation fixes and fi
 
 Recommended next product milestones:
 
-1. Finish repository hygiene for the public GitHub version: review uncommitted changes, commit a stable release snapshot, and add screenshots or short demo media.
+1. Tag and publish the documented `v0.1.0` GitHub release after one final release-readiness check.
 2. Improve M5Stick Chinese rendering when the firmware size budget and font plan are clear.
 3. Improve offline-review semantics beyond the last cached due-card batch.
 4. Add automatic PC/backend discovery so users do not need to manually copy the LAN server URL.

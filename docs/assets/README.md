@@ -1,15 +1,15 @@
 # StickWords Assets
 
-This directory is reserved for public README and release-page images.
+This directory contains public README and release-page images.
 
-Planned placeholders:
+Published assets:
 
-- `admin-page.png`: PC web admin page.
+- `admin-page.jpg`: PC web admin page.
 - `m5stick-clock.jpg`: M5Stick LVGL clock page.
-- `m5stick-review.jpg`: M5Stick review flow.
-- `setup-portal.png`: M5Stick setup portal.
+- `m5stick-word.jpg`: M5Stick word page.
+- `m5stick-rating.jpg`: M5Stick rating page.
 
-Before adding images, check that they do not expose:
+Before adding or replacing images, check that they do not expose:
 
 - real Wi-Fi SSIDs or passwords
 - exact private LAN addresses

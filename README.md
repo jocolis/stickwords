@@ -30,12 +30,19 @@ StickWords is a lightweight vocabulary review system for the M5Stick C Plus. It 
 
 ## Screenshots
 
-Screenshots are intentionally left as placeholders for now. Add sanitized images under `docs/assets/` before publishing a polished release page.
+### PC web admin
 
-- PC web admin page: `docs/assets/admin-page.png`
-- M5Stick clock page: `docs/assets/m5stick-clock.jpg`
-- M5Stick review page: `docs/assets/m5stick-review.jpg`
-- M5Stick setup portal: `docs/assets/setup-portal.png`
+![StickWords PC web admin](docs/assets/admin-page.jpg)
+
+### M5Stick clock
+
+![StickWords M5Stick clock](docs/assets/m5stick-clock.jpg)
+
+### Review flow
+
+| Word | Rating |
+| --- | --- |
+| ![StickWords word page](docs/assets/m5stick-word.jpg) | ![StickWords rating page](docs/assets/m5stick-rating.jpg) |
 
 ## Repository Layout
 
@@ -232,12 +239,19 @@ StickWords 是一个运行在 M5Stick C Plus 和 PC 后端上的轻量背单词�
 
 ## 截图
 
-当前先保留截图占位说明。正式展示前，把已脱敏图片放到 `docs/assets/`。
+### PC 网页管理页
 
-- PC 网页管理页：`docs/assets/admin-page.png`
-- M5Stick 时钟页：`docs/assets/m5stick-clock.jpg`
-- M5Stick 复习页：`docs/assets/m5stick-review.jpg`
-- M5Stick setup portal：`docs/assets/setup-portal.png`
+![StickWords PC 网页管理页](docs/assets/admin-page.jpg)
+
+### M5Stick 时钟页
+
+![StickWords M5Stick 时钟页](docs/assets/m5stick-clock.jpg)
+
+### 复习流程
+
+| 单词页 | 评分页 |
+| --- | --- |
+| ![StickWords 单词页](docs/assets/m5stick-word.jpg) | ![StickWords 评分页](docs/assets/m5stick-rating.jpg) |
 
 ## 项目结构
 
