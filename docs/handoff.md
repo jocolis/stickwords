@@ -18,6 +18,7 @@ Completed milestones:
 - Stage 5C idle auto power-off after 7 minutes without user interaction.
 - Stage 5D RTC-backed offline due scheduling.
 - Stage 6 LVGL clock page, LVGL review pages, review-complete clock return, clock visual polish, and review text layout tuning.
+- Stage 7 public GitHub release `v0.1.0`, including bilingual documentation, sanitized screenshots, release audit, and reproducible build verification.
 
 ## How To Run The PC Backend
 
@@ -253,9 +254,11 @@ Real-device result: the Stage 6 clock page is stable after rotation fixes and fi
 
 ## Next Stage
 
-Recommended next product milestones:
+The next implementation milestone is Stage 8A: review-history data foundations.
 
-1. Tag and publish the documented `v0.1.0` GitHub release after one final release-readiness check.
-2. Improve M5Stick Chinese rendering when the firmware size budget and font plan are clear.
-3. Improve offline-review semantics beyond the last cached due-card batch.
-4. Add automatic PC/backend discovery so users do not need to manually copy the LAN server URL.
+1. Define and persist an append-only PC-side review-history format.
+2. Record each accepted review exactly once using the existing idempotent event ID.
+3. Add a read-only recent-history API with focused storage and restart tests.
+4. Build the admin-page history and statistics UI only after the data contract is stable.
+
+Later milestones remain Chinese font support, stronger offline/re-rating semantics, backup/restore, and automatic PC/backend discovery. See `docs/roadmap.md` for the reconciled stage numbering.
