@@ -117,7 +117,7 @@ StickWords 是一个运行在 M5Stick C Plus + PC 后端上的轻量背单词系
 
 #### Stage 8A：复习历史数据基础
 
-状态：下一项。
+状态：设计已确认，待实施。详细设计见 `docs/stage8a_review_history_design.md`。
 
 目标：
 
